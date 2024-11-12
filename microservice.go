@@ -6,8 +6,17 @@ package main
 
 // let's pick CDNs to model our microservice architecture
 // microservice1 -> origin server, holds all the content! only communicates with cache server
-// microservice2 -> cache server, holds caches of content from the origin server.
+// microservice2 -> cache server, holds caches of content from the origin server. - samar
 // microservice3 -> request router, routes requests to cache servers. communicates with only cache servers.
+// ASSUMPTION: ALL ADDRESSES OF ALL MICROSERVICE ARE KNOWN TO EACH OTHER ON STARTUP
+// The data in question that the CDN holds is just one giga massive dictionary
+
+// message formats
+// request to cache: {key: "key"}
+// cache to origin: {key: "key"}
+//
+
+// LAUNCH ORIGIN : 4 |
 
 // tasks which need to be performed by the microservice are as follows ->
 // 1. At random intervals, simulate a task (task will depend upon which microservice role is being played)
