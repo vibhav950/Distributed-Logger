@@ -1,23 +1,23 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"math/rand"
 	"net"
-	"time"
 	"os"
+	"strconv"
 	"strings"
-	"bufio"
+	"time"
 )
 
 const (
 	server_response_timeout = 10e10           // timeout for the server to respond to a STATUS packet
-	interval                = 5 * time.Second // interval between sending packets
+	interval                = 1 * time.Second // interval between sending packets
 	max_key_index		 	= 100_000         // maximum index for the cache servers
 )
 
 var cacheServers = []string{}
-var count int
 
 func populateServers() bool {
 	file, err := os.Open("../servers.txt") // Replace with your file name
@@ -57,19 +57,46 @@ func populateServers() bool {
 		return false
 	}
 
-	count = 0
 	return true
 }
 
-func sendUDPPacket(ip string, payload int64) error {
-	conn, err := net.Dial("udp", ip)
+func udpSendAndReceive(addr string, payload int64) (string, error) {
+	/* Resolve the UDP address */
+	serverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
-		return err
+		return "", err
+	} else {
+		fmt.Printf("Resolved %s to %s\n", addr, serverAddr)
 	}
-	defer conn.Close()
 
-	_, err = fmt.Fprintf(conn, "%d", payload)
-	return err
+	/* Dial the server */
+	var conn *net.UDPConn
+	conn, err = net.DialUDP("udp", nil, serverAddr)
+	if err != nil {
+		return "", err
+	} else {
+		fmt.Printf("Established UDP connection with %s\n", addr)
+	}
+
+	/* Send a packet to the server */
+	_, err = conn.Write([]byte(strconv.FormatInt(payload, 10)))
+	if err != nil {
+		return "", err
+	} else {
+		fmt.Printf("Sent %d to %s\n", payload, addr)
+	}
+
+	/* Listen for a response */
+	buffer := make([]byte, 256)
+	conn.SetReadDeadline(time.Now().Add(server_response_timeout))
+	n, _, err := conn.ReadFromUDP(buffer)
+	if err != nil {
+		return "", err
+	} else {
+		fmt.Printf("Received from %s\n", addr)
+	}
+
+	return string(buffer[:n]), nil
 }
 
 func main() {
@@ -82,16 +109,16 @@ func main() {
 
 	ipIndex := 0
 	for range ticker.C {
-		// var status bool
-		var err error
 
 		payload := (rand.Int63()) % max_key_index
-		err = sendUDPPacket(cacheServers[ipIndex], payload)
+		response, err := udpSendAndReceive(cacheServers[ipIndex], payload)
+
 		if err != nil {
-			fmt.Printf("Error sending packet to %s: %v\n", cacheServers[ipIndex], err)
-		} else {
-			fmt.Printf("Sent packet to %s with payload %d\n", cacheServers[ipIndex], payload)
+			fmt.Printf("Error: %v\n", err)
+			continue
 		}
+
+		fmt.Printf("Response from %s: %s\n", cacheServers[ipIndex], response)
 
 		/* Go through the cacheServers in a Round-Robin fashion */
 		ipIndex = (ipIndex + 1) % len(cacheServers)
