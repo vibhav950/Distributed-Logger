@@ -1,31 +1,31 @@
 package main
 
 import (
-    "fmt"
-    "math/rand"
-    "net"
-    "time"
 	"bytes"
+	"fmt"
+	"math/rand"
+	"net"
+	"time"
 )
 
 const (
-	server_response_timeout = 10e10 // timeout for the server to respond to a STATUS packet
-    interval = 5 * time.Second // interval between sending packets
+	server_response_timeout = 10e10           // timeout for the server to respond to a STATUS packet
+	interval                = 5 * time.Second // interval between sending packets
 )
 
 var CACHES = []string{
-    "127.0.0.1:8080",
+	"127.0.0.1:7777",
 }
 
 func sendUDPPacket(ip string, payload int64) error {
-    conn, err := net.Dial("udp", ip)
-    if err != nil {
-        return err
-    }
-    defer conn.Close()
+	conn, err := net.Dial("udp", ip)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
 
-    _, err = fmt.Fprintf(conn, "%d", payload)
-    return err
+	_, err = fmt.Fprintf(conn, "%d", payload)
+	return err
 }
 
 /* Get the status of the server, we only consider a server to be
@@ -50,18 +50,18 @@ func getServerStatus(ip string) (bool, error) {
 		return false, err
 	}
 
-	if !bytes.Equal(response [:n], []byte("UP")) {
+	if !bytes.Equal(response[:n], []byte("UP")) {
 		return false, nil
 	}
 	return true, nil
 }
 
 func main() {
-    ticker := time.NewTicker(interval)
-    defer ticker.Stop()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
-    ipIndex := 0
-    for range ticker.C {
+	ipIndex := 0
+	for range ticker.C {
 		// var status bool
 		var err error
 
@@ -73,15 +73,15 @@ func main() {
 		// 	continue
 		// }
 
-        payload := rand.Int63()
-        err = sendUDPPacket(CACHES[ipIndex], payload)
-        if err != nil {
-            fmt.Printf("Error sending packet to %s: %v\n", CACHES[ipIndex], err)
-        } else {
-            fmt.Printf("Sent packet to %s with payload %d\n", CACHES[ipIndex], payload)
-        }
+		payload := rand.Int63()
+		err = sendUDPPacket(CACHES[ipIndex], payload)
+		if err != nil {
+			fmt.Printf("Error sending packet to %s: %v\n", CACHES[ipIndex], err)
+		} else {
+			fmt.Printf("Sent packet to %s with payload %d\n", CACHES[ipIndex], payload)
+		}
 
 		/* Go through the caches in a Round-Robin fashion */
-        ipIndex = (ipIndex + 1) % len(CACHES)
-    }
+		ipIndex = (ipIndex + 1) % len(CACHES)
+	}
 }
