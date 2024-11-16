@@ -18,12 +18,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"example.com/logger"
 )
 
 // var cache = make(map[int]string)
 var cache sync.Map
 var cacheSize int
 var cacheMutex sync.Mutex
+
+var a logger.RegistrationLog
 
 const maxCacheSize = 1000
 

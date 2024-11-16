@@ -6,9 +6,12 @@ import (
 	"net"
 	"strconv"
 	"time"
+
+	"example.com/logger"
 )
 
 var dictionary = make(map[int]string)
+var a logger.RegistrationLog
 
 const max_key_size = 100_000
 
