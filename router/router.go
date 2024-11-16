@@ -1,20 +1,64 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"net"
 	"time"
+	"os"
+	"strings"
+	"bufio"
 )
 
 const (
 	server_response_timeout = 10e10           // timeout for the server to respond to a STATUS packet
 	interval                = 5 * time.Second // interval between sending packets
+	max_key_index		 	= 100_000         // maximum index for the cache servers
 )
 
-var CACHES = []string{
-	"127.0.0.1:8080",
+var cacheServers = []string{}
+var count int
+
+func populateServers() bool {
+	file, err := os.Open("../servers.txt") // Replace with your file name
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	inOriginSection := false
+
+	// Read the file line by line
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "cache_servers" {
+			inOriginSection = true
+			continue
+		}
+
+		// If in the "cache_servers" section and encounter a blank line or another section
+		if inOriginSection {
+			if line == "" || strings.Contains(line, "_servers") {
+				break
+			}
+			cacheServers = append(cacheServers, line)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error reading file:", err)
+		return false
+	}
+
+	if len(cacheServers) == 0 {
+		fmt.Println("No origin servers found in the configuration.")
+		return false
+	}
+
+	count = 0
+	return true
 }
 
 func sendUDPPacket(ip string, payload int64) error {
@@ -28,35 +72,11 @@ func sendUDPPacket(ip string, payload int64) error {
 	return err
 }
 
-/* Get the status of the server, we only consider a server to be
- * online if it responds with "UP" */
-func getServerStatus(ip string) (bool, error) {
-	var n int
-
-	conn, err := net.DialTimeout("udp", ip, server_response_timeout)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close()
-
-	_, err = fmt.Fprintf(conn, "STATUS")
-	if err != nil {
-		return false, err
-	}
-
-	response := make([]byte, 5)
-	n, err = conn.Read(response)
-	if err != nil {
-		return false, err
-	}
-
-	if !bytes.Equal(response[:n], []byte("UP")) {
-		return false, nil
-	}
-	return true, nil
-}
-
 func main() {
+	if !populateServers() {
+		return // Exit if there are no cache servers
+	}
+
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -65,23 +85,15 @@ func main() {
 		// var status bool
 		var err error
 
-		/* Check if the server is up */
-		// status, err = getServerStatus(CACHES[ipIndex])
-		// if (err != nil) || !status {
-		// 	fmt.Printf("Server %s is down, skipping...\n", CACHES[ipIndex]);
-		// 	ipIndex = (ipIndex + 1) % len(CACHES)
-		// 	continue
-		// }
-
-		payload := rand.Int63()
-		err = sendUDPPacket(CACHES[ipIndex], payload)
+		payload := (rand.Int63()) % max_key_index
+		err = sendUDPPacket(cacheServers[ipIndex], payload)
 		if err != nil {
-			fmt.Printf("Error sending packet to %s: %v\n", CACHES[ipIndex], err)
+			fmt.Printf("Error sending packet to %s: %v\n", cacheServers[ipIndex], err)
 		} else {
-			fmt.Printf("Sent packet to %s with payload %d\n", CACHES[ipIndex], payload)
+			fmt.Printf("Sent packet to %s with payload %d\n", cacheServers[ipIndex], payload)
 		}
 
-		/* Go through the caches in a Round-Robin fashion */
-		ipIndex = (ipIndex + 1) % len(CACHES)
+		/* Go through the cacheServers in a Round-Robin fashion */
+		ipIndex = (ipIndex + 1) % len(cacheServers)
 	}
 }
