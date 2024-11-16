@@ -14,7 +14,7 @@ const (
 )
 
 var CACHES = []string{
-	"127.0.0.1:7777",
+	"127.0.0.1:8080",
 }
 
 func sendUDPPacket(ip string, payload int64) error {
