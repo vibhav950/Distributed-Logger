@@ -10,58 +10,30 @@ import (
 
 var dictionary = make(map[int]string)
 
+const max_key_size = 100_000
+
 func generateRandomString() string {
 	// Generate a random string of length 10
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano())) // initialize local pseudorandom generator
 	b := make([]byte, 10)
+
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[seededRand.Intn(len(charset))] // pick a random character from charset
 	}
 	return string(b)
 }
-
-// func client() {
-// 	serverAddr := "127.0.0.1:7777" // Address of the server
-
-// 	// Generate a random number
-// 	randomNumber := rand.Int()
-// 	modNumber := randomNumber % 10000
-
-// 	log.Printf("Generated random number: %d, sending modulo 10000: %d\n", randomNumber, modNumber)
-
-// 	conn, err := net.Dial("udp", serverAddr)
-// 	if err != nil {
-// 		log.Fatalf("Failed to connect to server: %v", err)
-// 	}
-// 	defer conn.Close()
-
-// 	_, err = conn.Write([]byte(strconv.Itoa(modNumber)))
-// 	if err != nil {
-// 		log.Fatalf("Failed to send message: %v", err)
-// 	}
-// 	log.Println("Message sent to server")
-
-// 	buffer := make([]byte, 1024)
-// 	n, err := conn.Read(buffer)
-// 	if err != nil {
-// 		log.Fatalf("Failed to read response: %v", err)
-// 	}
-
-// 	response := string(buffer[:n])
-// 	fmt.Printf("Response from server: %s\n", response)
-// }
 
 func main() {
 
 	log.Println("Starting the origin server")
 	log.Println("Generating random strings")
-	for i := 1; i <= 10000; i++ {
-		dictionary[i] = generateRandomString()
+	for i := 1; i <= max_key_size; i++ {
+		dictionary[i] = generateRandomString() // Generate a random string for each key
 	}
 	log.Println("Random strings generated")
 
-	pc, err := net.ListenPacket("udp", ":7777")
+	pc, err := net.ListenPacket("udp", ":7777") // Listen on port 7777
 	log.Println("Listening on port 7777")
 	if err != nil {
 		log.Fatal(err)
@@ -69,26 +41,26 @@ func main() {
 	defer pc.Close()
 	// go client()
 	for {
-		buffer := make([]byte, 1024)
-		n, addr, err := pc.ReadFrom(buffer)
+		buffer := make([]byte, 1024)        // Create a buffer to read the message
+		n, addr, err := pc.ReadFrom(buffer) // Read the message
 		if err != nil {
 			log.Println("Error reading from UDP:", err)
 			continue
 		}
 		log.Printf("Received message from %s: %s\n", addr, string(buffer[:n]))
 
-		key, err := strconv.Atoi(string(buffer[:n-1]))
+		key, err := strconv.Atoi(string(buffer[:n-1])) // Convert the message to an integer (remove the newline character)
 		if err != nil {
 			log.Println("Error converting key to int:", err)
 			continue
 		}
-		value, ok := dictionary[key]
+		value, ok := dictionary[key] // Get the value from the dictionary
 		if !ok {
 			log.Println("Key not found")
 			continue
 		}
 		log.Println("Sending value to client", value)
-		_, err = pc.WriteTo([]byte(value), addr)
+		_, err = pc.WriteTo([]byte(value), addr) // Send the value to the client
 		if err != nil {
 			log.Println("Error writing to UDP:", err)
 		}
