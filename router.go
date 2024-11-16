@@ -13,7 +13,7 @@ const (
     interval = 5 * time.Second // interval between sending packets
 )
 
-var IPS = []string{
+var CACHES = []string{
     "127.0.0.1:8080",
 }
 
@@ -28,9 +28,8 @@ func sendUDPPacket(ip string, payload int64) error {
     return err
 }
 
-// Get the status of the server by sending the STATUS string to the server
-// If the server is up, it will respond with UP, else DOWN
-// If the server does not respond in server_response_timeout seconds, it is considered to be offline
+/* Get the status of the server, we only consider a server to be
+ * online if it responds with "UP" */
 func getServerStatus(ip string) (bool, error) {
 	var n int
 
@@ -63,27 +62,26 @@ func main() {
 
     ipIndex := 0
     for range ticker.C {
-		var status bool
+		// var status bool
 		var err error
 
-		// Check if the server is up
-		// If the server is down, skip sending the packet
-		status, err = getServerStatus(IPS[ipIndex])
-		if (err != nil) || !status {
-			fmt.Printf("Server %s is down, skipping...\n", IPS[ipIndex]);
-			ipIndex = (ipIndex + 1) % len(IPS)
-			continue
-		}
+		/* Check if the server is up */
+		// status, err = getServerStatus(CACHES[ipIndex])
+		// if (err != nil) || !status {
+		// 	fmt.Printf("Server %s is down, skipping...\n", CACHES[ipIndex]);
+		// 	ipIndex = (ipIndex + 1) % len(CACHES)
+		// 	continue
+		// }
 
         payload := rand.Int63()
-        err = sendUDPPacket(IPS[ipIndex], payload)
+        err = sendUDPPacket(CACHES[ipIndex], payload)
         if err != nil {
-            fmt.Printf("Error sending packet to %s: %v\n", IPS[ipIndex], err)
+            fmt.Printf("Error sending packet to %s: %v\n", CACHES[ipIndex], err)
         } else {
-            fmt.Printf("Sent packet to %s with payload %d\n", IPS[ipIndex], payload)
+            fmt.Printf("Sent packet to %s with payload %d\n", CACHES[ipIndex], payload)
         }
 
-		// Go through the IPs in a Round-Robin fashion
-        ipIndex = (ipIndex + 1) % len(IPS)
+		/* Go through the caches in a Round-Robin fashion */
+        ipIndex = (ipIndex + 1) % len(CACHES)
     }
 }
