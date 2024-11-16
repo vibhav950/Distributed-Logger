@@ -1,3 +1,3 @@
-module cache_microservice
+module example.com/cache
 
 go 1.23.2

@@ -9,14 +9,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/google/uuid"
+	"example.com/logger"
 )
 
 const (
 	server_response_timeout = 10e10           // timeout for the server to respond to a STATUS packet
 	interval                = 1 * time.Second // interval between sending packets
-	max_key_index		 	= 100_000         // maximum index for the cache servers
+	max_key_index           = 100_000         // maximum index for the cache servers
 )
 
+var nodeID int
 var cacheServers = []string{}
 
 func populateServers() bool {
@@ -66,7 +69,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		fmt.Printf("Resolved %s to %s\n", addr, serverAddr)
+		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr)))
 	}
 
 	/* Dial the server */
@@ -75,7 +78,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		fmt.Printf("Established UDP connection with %s\n", addr)
+		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr)))
 	}
 
 	/* Send a packet to the server */
@@ -83,7 +86,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		fmt.Printf("Sent %d to %s\n", payload, addr)
+		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr)))
 	}
 
 	/* Listen for a response */
@@ -93,16 +96,23 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		fmt.Printf("Received from %s\n", addr)
+		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Received %s from %s", string(buffer[:n]), addr)))
 	}
 
 	return string(buffer[:n]), nil
+}
+
+func broadcastLog(log string) {
+	fmt.Println(log) // TODO implement logging
 }
 
 func main() {
 	if !populateServers() {
 		return // Exit if there are no cache servers
 	}
+
+	nodeID = int(uuid.New().ID())
+	/* TODO Register with the logging system */
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -118,7 +128,7 @@ func main() {
 			continue
 		}
 
-		fmt.Printf("Response from %s: %s\n", cacheServers[ipIndex], response)
+		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response)))
 
 		/* Go through the cacheServers in a Round-Robin fashion */
 		ipIndex = (ipIndex + 1) % len(cacheServers)
