@@ -122,7 +122,7 @@ func getVal(key int) string {
 		if err != nil || val == "" {
 			return ""
 		}
-		cache.Store(key, val)
+		addToCache(key, val)
 		return val
 	}
 	return value.(string)
@@ -164,7 +164,7 @@ func getFromOrigin(key int) (string, error) {
 
 	conn, err := net.DialUDP("udp", nil, serverAddr)
 	if err != nil {
-		fmt.Println("Error connecting to origin server: %v\n", err)
+		fmt.Printf("Error connecting to origin server: %v\n", err)
 		return "", err
 	}
 	defer conn.Close()
@@ -173,7 +173,7 @@ func getFromOrigin(key int) (string, error) {
 		message := []byte(fmt.Sprintf("%d", key))
 		_, err = conn.Write(message)
 		if err != nil {
-			fmt.Println("Error writing to server: %v\n", err)
+			fmt.Printf("Error writing to server: %v\n", err)
 			return "", err
 		}
 
@@ -198,7 +198,7 @@ func getFromOrigin(key int) (string, error) {
 }
 
 func populateServers() bool {
-	file, err := os.Open("servers.txt") // Replace with your file name
+	file, err := os.Open("../servers.txt") // Replace with your file name
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return false
