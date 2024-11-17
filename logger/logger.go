@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -25,15 +26,15 @@ type InfoLog struct {
 }
 
 type WarnLog struct {
-	LogID             int    `json:"log_id"`
-	NodeID            int    `json:"node_id"`
-	LogLevel          string `json:"log_level"`
-	MessageType       string `json:"message_type"`
-	Message           string `json:"message"`
-	ServiceName       string `json:"service_name"`
-	ResponseTimeMs    string `json:"response_time_ms"`
-	ThresholdLimitMs  string `json:"threshold_limit_ms"`
-	Timestamp         string `json:"timestamp"`
+	LogID            int    `json:"log_id"`
+	NodeID           int    `json:"node_id"`
+	LogLevel         string `json:"log_level"`
+	MessageType      string `json:"message_type"`
+	Message          string `json:"message"`
+	ServiceName      string `json:"service_name"`
+	ResponseTimeMs   string `json:"response_time_ms"`
+	ThresholdLimitMs string `json:"threshold_limit_ms"`
+	Timestamp        string `json:"timestamp"`
 }
 
 type ErrorLog struct {
@@ -57,6 +58,9 @@ type Heartbeat struct {
 	Timestamp   string `json:"timestamp"`
 }
 
+func BroadcastLog(log string) {
+	fmt.Println(log) //Implement UDP broadcast here
+}
 
 func GenerateRegistrationLog(nodeID int, serviceName string) string {
 	log := RegistrationLog{
@@ -87,15 +91,15 @@ func GenerateInfoLog(nodeID int, serviceName string, message string) string {
 
 func GenerateWarnLog(nodeID int, serviceName string, message string) string {
 	log := WarnLog{
-		LogID:             int(uuid.New().ID()),
-		NodeID:            nodeID,
-		LogLevel:          "WARN",
-		MessageType:       "LOG",
-		Message:           message,
-		ServiceName:       serviceName,
-		ResponseTimeMs:    "",
-		ThresholdLimitMs:  "",
-		Timestamp:         time.Now().String(),
+		LogID:            int(uuid.New().ID()),
+		NodeID:           nodeID,
+		LogLevel:         "WARN",
+		MessageType:      "LOG",
+		Message:          message,
+		ServiceName:      serviceName,
+		ResponseTimeMs:   "",
+		ThresholdLimitMs: "",
+		Timestamp:        time.Now().String(),
 	}
 
 	jsonData, _ := json.Marshal(log)

@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/google/uuid"
+
 	"example.com/logger"
+	"github.com/google/uuid"
 )
 
 const (
@@ -69,7 +70,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr)))
+		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr)))
 	}
 
 	/* Dial the server */
@@ -78,7 +79,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr)))
+		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr)))
 	}
 
 	/* Send a packet to the server */
@@ -86,7 +87,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr)))
+		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr)))
 	}
 
 	/* Listen for a response */
@@ -96,15 +97,15 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Received %s from %s", string(buffer[:n]), addr)))
+		logger.BroadcastLog((logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Received %s from %s", string(buffer[:n]), addr))))
 	}
 
 	return string(buffer[:n]), nil
 }
 
-func broadcastLog(log string) {
-	fmt.Println(log) // TODO implement logging
-}
+// func broadcastLog(log string) {
+// 	fmt.Println(log) // TODO implement logging
+// }
 
 func main() {
 	if !populateServers() {
@@ -128,7 +129,7 @@ func main() {
 			continue
 		}
 
-		broadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response)))
+		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response)))
 
 		/* Go through the cacheServers in a Round-Robin fashion */
 		ipIndex = (ipIndex + 1) % len(cacheServers)
