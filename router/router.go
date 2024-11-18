@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"example.com/logger"
 	"github.com/google/uuid"
 )
@@ -103,13 +102,20 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	return string(buffer[:n]), nil
 }
 
-// func broadcastLog(log string) {
-// 	fmt.Println(log) // TODO implement logging
-// }
 
 func main() {
+	var err error
+
 	if !populateServers() {
 		return // Exit if there are no cache servers
+	}
+
+	brokers := []string{"192.168.239.251:9092"}
+	topic := "logs"
+	err = logger.InitLogger(brokers, topic, false)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
 	}
 
 	nodeID = int(uuid.New().ID())

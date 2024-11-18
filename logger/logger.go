@@ -58,14 +58,50 @@ type Heartbeat struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-func BroadcastLog(log []byte, topic string, brokers []string) {
+var globalBrokers = []string{}
+var globalTopic = ""
+
+func InitLogger(brokers []string, topic string, createTopic bool) error {
+	// Create Kafka topic if it does not exist
+	var err error
+
+	admin, err := sarama.NewClusterAdmin(brokers, sarama.NewConfig())
+	if err != nil {
+		err = fmt.Errorf("Failed to create Sarama cluster admin: %v\n", err)
+		return err
+	}
+	defer admin.Close()
+
+	if createTopic {
+		err = admin.CreateTopic(topic, &sarama.TopicDetail{
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		}, false)
+		if err != nil {
+			err = fmt.Errorf("Failed to create Kafka topic: %v\n", err)
+			return err
+		}
+		fmt.Println("Kafka topic created successfully")
+	}
+
+	globalBrokers = brokers
+	globalTopic = topic
+	return nil
+}
+
+func BroadcastLog(log []byte) {
+	if globalBrokers == nil || globalTopic == "" {
+		fmt.Println("Logger not initialized")
+		return
+	}
+
 	// Configure Sarama Kafka producer
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
 
 	// Create new Kafka producer
-	producer, err := sarama.NewSyncProducer(brokers, config)
+	producer, err := sarama.NewSyncProducer(globalBrokers, config)
 	if err != nil {
 		fmt.Printf("Failed to start Sarama producer: %v\n", err)
 		return
@@ -74,7 +110,7 @@ func BroadcastLog(log []byte, topic string, brokers []string) {
 
 	// Create Kafka message
 	msg := &sarama.ProducerMessage{
-		Topic: topic,
+		Topic: globalTopic,
 		Value: sarama.ByteEncoder(log),
 	}
 
@@ -169,31 +205,34 @@ func DecodeLog(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
-func main() {
-	brokers := []string{"192.168.239.251:9092"} // Replace with your Kafka broker addresses
-	topic := "logs"                             // Kafka topic for logs
+func Test() {
+	/* Set Kafka hostname and topic */
+	brokers := []string{"192.168.239.251:9092"}
+	topic := "logs"
+
+	err := InitLogger(brokers, topic, true)
+	if err != nil {
+		fmt.Printf("%v", err)
+		return
+	}
 
 	// Produce logs
-	registrationLog := GenerateRegistrationLog(1, "foo_service")
-	BroadcastLog(registrationLog, topic, brokers)
+	BroadcastLog(GenerateRegistrationLog(1, "foo_service"))
 
-	infoLog := GenerateInfoLog(1, "foo_service", "This is an info message")
-	BroadcastLog(infoLog, topic, brokers)
+	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
 
-	warnLog := GenerateWarnLog(1, "foo_service", "This is a warning message")
-	BroadcastLog(warnLog, topic, brokers)
+	BroadcastLog(GenerateWarnLog(1, "foo_service", "This is a warning message"))
 
-	errorLog := GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")
-	BroadcastLog(errorLog, topic, brokers)
+	BroadcastLog(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
 
-	heartbeat := GenerateHeartbeat(1, true)
-	BroadcastLog(heartbeat, topic, brokers)
+	BroadcastLog(GenerateHeartbeat(1, true))
 
 	fmt.Println("Logs sent successfully")
 
 	// Decode example
 	var decodedLog InfoLog
-	err := DecodeLog(infoLog, &decodedLog)
+	infoLog := GenerateInfoLog(1, "foo_service", "This is an info message")
+	err = DecodeLog(infoLog, &decodedLog)
 	if err != nil {
 		fmt.Printf("Failed to decode log: %v\n", err)
 	} else {
