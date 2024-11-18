@@ -1,10 +1,11 @@
-package logger
+package main
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 )
 
@@ -58,8 +59,34 @@ type Heartbeat struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-func BroadcastLog(log string) {
-	fmt.Println(log) //Implement UDP broadcast here
+func BroadcastLog(log string, topic string, brokers []string) {
+	// Configure Sarama Kafka producer
+	config := sarama.NewConfig()
+	config.Producer.Return.Successes = true
+	config.Producer.Return.Errors = true
+
+	// Create a new Kafka producer
+	producer, err := sarama.NewSyncProducer(brokers, config)
+	if err != nil {
+		fmt.Printf("Failed to start Sarama producer: %v\n", err)
+		return
+	}
+	defer producer.Close()
+
+	// Create Kafka message
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Value: sarama.StringEncoder(log),
+	}
+
+	// Send the message
+	partition, offset, err := producer.SendMessage(msg)
+	if err != nil {
+		fmt.Printf("Failed to send message: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
 }
 
 func GenerateRegistrationLog(nodeID int, serviceName string) string {
@@ -145,10 +172,22 @@ func GenerateHeartbeat(nodeID int, healthy bool) string {
 	return string(jsonData)
 }
 
-func Test() {
-	fmt.Println(GenerateRegistrationLog(1, "foo_service"))
-	fmt.Println(GenerateInfoLog(1, "foo_service", "This is an info message"))
-	fmt.Println(GenerateWarnLog(1, "foo_service", "This is a warning message"))
-	fmt.Println(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
-	fmt.Println(GenerateHeartbeat(1, true))
+func main() {
+	brokers := []string{"localhost:9092"} // Replace with your Kafka broker addresses
+	topic := "logs"                       // Kafka topic for logs
+
+	log := GenerateRegistrationLog(1, "foo_service")
+	BroadcastLog(log, topic, brokers)
+
+	log = GenerateInfoLog(1, "foo_service", "This is an info message")
+	BroadcastLog(log, topic, brokers)
+
+	log = GenerateWarnLog(1, "foo_service", "This is a warning message")
+	BroadcastLog(log, topic, brokers)
+
+	log = GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")
+	BroadcastLog(log, topic, brokers)
+
+	log = GenerateHeartbeat(1, true)
+	BroadcastLog(log, topic, brokers)
 }
