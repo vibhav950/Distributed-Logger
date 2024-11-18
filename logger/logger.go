@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type RegistrationLog struct {
+type RegistrationMsg struct {
 	NodeID      int    `json:"node_id"`
 	MessageType string `json:"message_type"`
 	ServiceName string `json:"service_name"`
@@ -56,6 +56,14 @@ type Heartbeat struct {
 	MessageType string `json:"message_type"`
 	Status      string `json:"status"`
 	Timestamp   string `json:"timestamp"`
+}
+
+type RegistryMsg struct {
+	MessageType string `json:"message_type"`
+	NodeID		int    `json:"node_id"`
+	ServiceName	string `json:"service_name"`
+	Status		string `json:"status"`
+	Timestamp 	string `json:"timestamp"`
 }
 
 var globalBrokers = []string{}
@@ -123,8 +131,8 @@ func BroadcastLog(log []byte) {
 	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
 }
 
-func GenerateRegistrationLog(nodeID int, serviceName string) []byte {
-	log := RegistrationLog{
+func GenerateRegistrationMsg(nodeID int, serviceName string) []byte {
+	log := RegistrationMsg{
 		NodeID:      nodeID,
 		MessageType: "REGISTRATION",
 		ServiceName: serviceName,
@@ -185,7 +193,7 @@ func GenerateErrorLog(nodeID int, serviceName string, message string, errorCode 
 	return jsonData
 }
 
-func GenerateHeartbeat(nodeID int, healthy bool) []byte {
+func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
 	status := "UP"
 	if !healthy {
 		status = "DOWN"
@@ -201,7 +209,26 @@ func GenerateHeartbeat(nodeID int, healthy bool) []byte {
 	return jsonData
 }
 
-func DecodeLog(data []byte, v interface{}) error {
+func GenerateRegistryMsg(nodeID int, serviceName string, up bool) []byte {
+	var statusString string
+
+	if up {
+		statusString = "UP"
+	} else {
+		statusString = "DOWN"
+	}
+	registry := RegistryMsg{
+		MessageType: 	"REGISTRATION",
+		NodeID:			nodeID,
+		ServiceName: 	serviceName,
+		Status:		 	statusString,
+		Timestamp:		time.Now().String(),
+	}
+	jsonData, _ := json.Marshal(registry)
+	return jsonData
+}
+
+func  DecodeLog(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
@@ -217,7 +244,7 @@ func Test() {
 	}
 
 	// Produce logs
-	BroadcastLog(GenerateRegistrationLog(1, "foo_service"))
+	BroadcastLog(GenerateRegistrationMsg(1, "foo_service"))
 
 	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
 
@@ -225,7 +252,7 @@ func Test() {
 
 	BroadcastLog(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
 
-	BroadcastLog(GenerateHeartbeat(1, true))
+	BroadcastLog(GenerateHeartbeatMsg(1, true))
 
 	fmt.Println("Logs sent successfully")
 
