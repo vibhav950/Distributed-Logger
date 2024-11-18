@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 )
@@ -59,13 +58,13 @@ type Heartbeat struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-func BroadcastLog(log string, topic string, brokers []string) {
+func BroadcastLog(log []byte, topic string, brokers []string) {
 	// Configure Sarama Kafka producer
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
 
-	// Create a new Kafka producer
+	// Create new Kafka producer
 	producer, err := sarama.NewSyncProducer(brokers, config)
 	if err != nil {
 		fmt.Printf("Failed to start Sarama producer: %v\n", err)
@@ -76,32 +75,30 @@ func BroadcastLog(log string, topic string, brokers []string) {
 	// Create Kafka message
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
-		Value: sarama.StringEncoder(log),
+		Value: sarama.ByteEncoder(log),
 	}
 
-	// Send the message
+	// Send message to Kafka
 	partition, offset, err := producer.SendMessage(msg)
 	if err != nil {
 		fmt.Printf("Failed to send message: %v\n", err)
 		return
 	}
-
 	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
 }
 
-func GenerateRegistrationLog(nodeID int, serviceName string) string {
+func GenerateRegistrationLog(nodeID int, serviceName string) []byte {
 	log := RegistrationLog{
 		NodeID:      nodeID,
 		MessageType: "REGISTRATION",
 		ServiceName: serviceName,
 		Timestamp:   time.Now().String(),
 	}
-
 	jsonData, _ := json.Marshal(log)
-	return string(jsonData)
+	return jsonData
 }
 
-func GenerateInfoLog(nodeID int, serviceName string, message string) string {
+func GenerateInfoLog(nodeID int, serviceName string, message string) []byte {
 	log := InfoLog{
 		LogID:       int(uuid.New().ID()),
 		NodeID:      nodeID,
@@ -111,12 +108,11 @@ func GenerateInfoLog(nodeID int, serviceName string, message string) string {
 		ServiceName: serviceName,
 		Timestamp:   time.Now().String(),
 	}
-
 	jsonData, _ := json.Marshal(log)
-	return string(jsonData)
+	return jsonData
 }
 
-func GenerateWarnLog(nodeID int, serviceName string, message string) string {
+func GenerateWarnLog(nodeID int, serviceName string, message string) []byte {
 	log := WarnLog{
 		LogID:            int(uuid.New().ID()),
 		NodeID:           nodeID,
@@ -128,12 +124,11 @@ func GenerateWarnLog(nodeID int, serviceName string, message string) string {
 		ThresholdLimitMs: "",
 		Timestamp:        time.Now().String(),
 	}
-
 	jsonData, _ := json.Marshal(log)
-	return string(jsonData)
+	return jsonData
 }
 
-func GenerateErrorLog(nodeID int, serviceName string, message string, errorCode string, errorMessage string) string {
+func GenerateErrorLog(nodeID int, serviceName string, message string, errorCode string, errorMessage string) []byte {
 	log := ErrorLog{
 		LogID:       int(uuid.New().ID()),
 		NodeID:      nodeID,
@@ -150,12 +145,11 @@ func GenerateErrorLog(nodeID int, serviceName string, message string, errorCode 
 		},
 		Timestamp: time.Now().String(),
 	}
-
 	jsonData, _ := json.Marshal(log)
-	return string(jsonData)
+	return jsonData
 }
 
-func GenerateHeartbeat(nodeID int, healthy bool) string {
+func GenerateHeartbeat(nodeID int, healthy bool) []byte {
 	status := "UP"
 	if !healthy {
 		status = "DOWN"
@@ -167,27 +161,42 @@ func GenerateHeartbeat(nodeID int, healthy bool) string {
 		Status:      status,
 		Timestamp:   time.Now().String(),
 	}
-
 	jsonData, _ := json.Marshal(heartbeat)
-	return string(jsonData)
+	return jsonData
+}
+
+func DecodeLog(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
 }
 
 func main() {
-	brokers := []string{"localhost:9092"} // Replace with your Kafka broker addresses
-	topic := "logs"                       // Kafka topic for logs
+	brokers := []string{"192.168.239.251:9092"} // Replace with your Kafka broker addresses
+	topic := "logs"                             // Kafka topic for logs
 
-	log := GenerateRegistrationLog(1, "foo_service")
-	BroadcastLog(log, topic, brokers)
+	// Produce logs
+	registrationLog := GenerateRegistrationLog(1, "foo_service")
+	BroadcastLog(registrationLog, topic, brokers)
 
-	log = GenerateInfoLog(1, "foo_service", "This is an info message")
-	BroadcastLog(log, topic, brokers)
+	infoLog := GenerateInfoLog(1, "foo_service", "This is an info message")
+	BroadcastLog(infoLog, topic, brokers)
 
-	log = GenerateWarnLog(1, "foo_service", "This is a warning message")
-	BroadcastLog(log, topic, brokers)
+	warnLog := GenerateWarnLog(1, "foo_service", "This is a warning message")
+	BroadcastLog(warnLog, topic, brokers)
 
-	log = GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")
-	BroadcastLog(log, topic, brokers)
+	errorLog := GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")
+	BroadcastLog(errorLog, topic, brokers)
 
-	log = GenerateHeartbeat(1, true)
-	BroadcastLog(log, topic, brokers)
+	heartbeat := GenerateHeartbeat(1, true)
+	BroadcastLog(heartbeat, topic, brokers)
+
+	fmt.Println("Logs sent successfully")
+
+	// Decode example
+	var decodedLog InfoLog
+	err := DecodeLog(infoLog, &decodedLog)
+	if err != nil {
+		fmt.Printf("Failed to decode log: %v\n", err)
+	} else {
+		fmt.Printf("Decoded log: %+v\n", decodedLog)
+	}
 }
