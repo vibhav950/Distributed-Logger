@@ -13,7 +13,7 @@ import (
 )
 
 var dictionary = make(map[int]string)
-var a logger.RegistrationLog
+var a logger.RegistrationMsg
 
 var brokers = []string{"172.24.230.157:9092"}
 
@@ -45,7 +45,7 @@ func main() {
 	}
 
 	log.Println("Starting the origin server with unique ID:", nodeID)
-	logger.BroadcastLog(logger.GenerateRegistrationLog(nodeID, "origin-server")) // Broadcast the registration log
+	logger.BroadcastLog(logger.GenerateRegistrationMsg(nodeID, "origin-server")) // Broadcast the registration log
 
 	log.Println("Generating random strings")
 	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Generating random strings"))

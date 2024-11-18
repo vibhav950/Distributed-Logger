@@ -1,4 +1,4 @@
-package main
+package logger
 
 import (
 	"encoding/json"
@@ -225,6 +225,13 @@ func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
 	}
 	jsonData, _ := json.Marshal(heartbeat)
 	return jsonData
+}
+
+func StartHeartbeatRoutine(nodeID int) {
+	for {
+		BroadcastLog(GenerateHeartbeatMsg(nodeID, true))
+		time.Sleep(15 * time.Second)
+	}
 }
 
 func GenerateRegistryMsg(nodeID int, serviceName string, up bool) []byte {

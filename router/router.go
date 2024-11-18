@@ -110,6 +110,7 @@ func main() {
 		return // Exit if there are no cache servers
 	}
 
+	/* Initialize the logger */
 	brokers := []string{"172.24.230.157:9092"}
 	topic := "logs"
 	err = logger.InitLogger(brokers, topic, false)
@@ -120,6 +121,9 @@ func main() {
 
 	nodeID = int(uuid.New().ID())
 	/* TODO Register with the logging system */
+
+	/* Start the heartbeat routine */
+	go logger.StartHeartbeatRoutine(nodeID)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
