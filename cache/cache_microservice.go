@@ -19,8 +19,8 @@ var cache sync.Map
 var cacheSize int
 var cacheMutex sync.Mutex
 
-var a logger.RegistrationMsg
-var brokers = []string{"192.168.239.251:9092"}
+var a logger.RegistrationLog
+var brokers = []string{"172.24.230.157:9092"}
 var nodeID int
 
 const topic = "cache_logs"

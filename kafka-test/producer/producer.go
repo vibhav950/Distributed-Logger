@@ -173,9 +173,8 @@ func GenerateHeartbeat(nodeID int, healthy bool) string {
 }
 
 func main() {
-	brokers := []string{"192.168.239.251:9092"} // Replace with your Kafka broker addresses
-	topic := "logs"                       // Kafka topic for logs
-
+	brokers := []string{"172.24.230.157:9092"} // Replace with your Kafka broker addresses
+	topic := "logs"                            // Kafka topic for logs
 	log := GenerateRegistrationLog(1, "foo_service")
 	BroadcastLog(log, topic, brokers)
 

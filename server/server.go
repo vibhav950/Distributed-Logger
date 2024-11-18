@@ -139,7 +139,7 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 }
 
 func main() {
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"172.24.230.157:9092"}
 	topics := []string{"registration_logs", "info_logs", "warn_logs", "error_logs", "heartbeat_logs"}
 	elasticIndex := "kafka-logs"
 

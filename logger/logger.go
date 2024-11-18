@@ -1,9 +1,11 @@
-package logger
+package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 )
@@ -60,10 +62,10 @@ type Heartbeat struct {
 
 type RegistryMsg struct {
 	MessageType string `json:"message_type"`
-	NodeID		int    `json:"node_id"`
-	ServiceName	string `json:"service_name"`
-	Status		string `json:"status"`
-	Timestamp 	string `json:"timestamp"`
+	NodeID      int    `json:"node_id"`
+	ServiceName string `json:"service_name"`
+	Status      string `json:"status"`
+	Timestamp   string `json:"timestamp"`
 }
 
 var globalBrokers = []string{}
@@ -97,38 +99,54 @@ func InitLogger(brokers []string, topic string, createTopic bool) error {
 	return nil
 }
 
+// func BroadcastLog(log []byte) {
+// 	if globalBrokers == nil || globalTopic == "" {
+// 		fmt.Println("Logger not initialized")
+// 		return
+// 	}
+
+// 	// Configure Sarama Kafka producer
+// 	config := sarama.NewConfig()
+// 	config.Producer.Return.Successes = true
+// 	config.Producer.Return.Errors = true
+
+// 	// Create new Kafka producer
+// 	producer, err := sarama.NewSyncProducer(globalBrokers, config)
+// 	if err != nil {
+// 		fmt.Printf("Failed to start Sarama producer: %v\n", err)
+// 		return
+// 	}
+// 	defer producer.Close()
+
+// 	// Create Kafka message
+// 	msg := &sarama.ProducerMessage{
+// 		Topic: globalTopic,
+// 		Value: sarama.ByteEncoder(log),
+// 	}
+
+// 	// Send message to Kafka
+// 	partition, offset, err := producer.SendMessage(msg)
+// 	if err != nil {
+// 		fmt.Printf("Failed to send message: %v\n", err)
+// 		return
+// 	}
+// 	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
+// }
+
 func BroadcastLog(log []byte) {
-	if globalBrokers == nil || globalTopic == "" {
-		fmt.Println("Logger not initialized")
-		return
-	}
+	const fluentdAddress = "127.0.0.1:24224" // Fluentd default forward address
 
-	// Configure Sarama Kafka producer
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.Return.Errors = true
-
-	// Create new Kafka producer
-	producer, err := sarama.NewSyncProducer(globalBrokers, config)
+	conn, err := net.Dial("tcp", fluentdAddress)
 	if err != nil {
-		fmt.Printf("Failed to start Sarama producer: %v\n", err)
+		fmt.Printf("Failed to connect to Fluentd: %v\n", err)
 		return
 	}
-	defer producer.Close()
+	defer conn.Close()
 
-	// Create Kafka message
-	msg := &sarama.ProducerMessage{
-		Topic: globalTopic,
-		Value: sarama.ByteEncoder(log),
-	}
-
-	// Send message to Kafka
-	partition, offset, err := producer.SendMessage(msg)
+	_, err = conn.Write(log)
 	if err != nil {
-		fmt.Printf("Failed to send message: %v\n", err)
-		return
+		fmt.Printf("Failed to send log to Fluentd: %v\n", err)
 	}
-	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
 }
 
 func GenerateRegistrationMsg(nodeID int, serviceName string) []byte {
@@ -218,26 +236,26 @@ func GenerateRegistryMsg(nodeID int, serviceName string, up bool) []byte {
 		statusString = "DOWN"
 	}
 	registry := RegistryMsg{
-		MessageType: 	"REGISTRATION",
-		NodeID:			nodeID,
-		ServiceName: 	serviceName,
-		Status:		 	statusString,
-		Timestamp:		time.Now().String(),
+		MessageType: "REGISTRATION",
+		NodeID:      nodeID,
+		ServiceName: serviceName,
+		Status:      statusString,
+		Timestamp:   time.Now().String(),
 	}
 	jsonData, _ := json.Marshal(registry)
 	return jsonData
 }
 
-func  DecodeLog(data []byte, v interface{}) error {
+func DecodeLog(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
 func Test() {
 	/* Set Kafka hostname and topic */
-	brokers := []string{"192.168.239.251:9092"}
+	brokers := []string{"localhost:9092"}
 	topic := "logs"
 
-	err := InitLogger(brokers, topic, true)
+	err := InitLogger(brokers, topic, false)
 	if err != nil {
 		fmt.Printf("%v", err)
 		return
@@ -265,4 +283,8 @@ func Test() {
 	} else {
 		fmt.Printf("Decoded log: %+v\n", decodedLog)
 	}
+}
+
+func main() {
+	Test()
 }

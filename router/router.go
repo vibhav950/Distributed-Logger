@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"example.com/logger"
 	"github.com/google/uuid"
 )
@@ -102,7 +103,6 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	return string(buffer[:n]), nil
 }
 
-
 func main() {
 	var err error
 
@@ -110,7 +110,7 @@ func main() {
 		return // Exit if there are no cache servers
 	}
 
-	brokers := []string{"192.168.239.251:9092"}
+	brokers := []string{"172.24.230.157:9092"}
 	topic := "logs"
 	err = logger.InitLogger(brokers, topic, false)
 	if err != nil {
