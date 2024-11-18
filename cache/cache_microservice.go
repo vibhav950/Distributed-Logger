@@ -19,7 +19,7 @@ var cache sync.Map
 var cacheSize int
 var cacheMutex sync.Mutex
 
-var a logger.RegistrationLog
+var a logger.RegistrationMsg
 var brokers = []string{"192.168.239.251:9092"}
 var nodeID int
 
@@ -42,7 +42,7 @@ func main() {
 	log.Println("Logger initialized")
 
 	log.Printf("Starting cache server with unique ID: %d\n", nodeID)
-	logger.BroadcastLog(logger.GenerateRegistrationLog(nodeID, "cache_server"))
+	logger.BroadcastLog(logger.GenerateRegistrationMsg(nodeID, "cache_server"))
 
 	arguments := os.Args
 	if len(arguments) == 1 {
