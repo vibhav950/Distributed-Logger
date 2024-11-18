@@ -14,6 +14,10 @@ import (
 var dictionary = make(map[int]string)
 var a logger.RegistrationLog
 
+var brokers = []string{"localhost:9092"}
+
+const topic = "logs"
+
 var nodeID int
 
 const max_key_size = 100_000
@@ -31,22 +35,23 @@ func generateRandomString() string {
 }
 
 func main() {
+
 	nodeID = int(uuid.New().ID()) // Generate a random node ID
 	log.Println("Starting the origin server with unique ID:", nodeID)
-	logger.BroadcastLog(logger.GenerateRegistrationLog(nodeID, "origin-server")) // Broadcast the registration log
+	logger.BroadcastLog(logger.GenerateRegistrationLog(nodeID, "origin-server"), topic, brokers) // Broadcast the registration log
 
 	log.Println("Generating random strings")
-	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Generating random strings"))
+	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Generating random strings"), topic, brokers)
 
 	for i := 1; i <= max_key_size; i++ {
 		dictionary[i] = generateRandomString() // Generate a random string for each key
 	}
 	log.Println("Random strings generated")
-	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server ", "Random strings generated"))
+	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server ", "Random strings generated"), topic, brokers)
 
 	pc, err := net.ListenPacket("udp", ":7777") // Listen on port 7777
 	log.Println("Listening on port 7777")
-	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Listening on port 7777"))
+	logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Listening on port 7777"), topic, brokers)
 
 	if err != nil {
 		log.Fatal(err)
@@ -58,30 +63,30 @@ func main() {
 		n, addr, err := pc.ReadFrom(buffer) // Read the message
 		if err != nil {
 			log.Println("Error reading from UDP:", err)
-			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Error reading from UDP"))
+			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Error reading from UDP"), topic, brokers)
 			continue
 		}
 		log.Printf("Received message from %s: %s\n", addr, string(buffer[:n]))
-		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Received message from "+addr.String()+": "+string(buffer[:n])))
+		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Received message from "+addr.String()+": "+string(buffer[:n])), topic, brokers)
 
 		key, err := strconv.Atoi(string(buffer[:n-1])) // Convert the message to an integer (remove the newline character)
 		if err != nil {
 			log.Println("Error converting key to int:", err)
-			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Error converting key to int"))
+			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Error converting key to int"), topic, brokers)
 			continue
 		}
 		value, ok := dictionary[key] // Get the value from the dictionary
 		if !ok {
 			log.Println("Key not found")
-			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Key not found"))
+			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Key not found"), topic, brokers)
 			continue
 		}
 		log.Println("Sending value to client", value)
-		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Sending value to client "+value))
+		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "origin-server", "Sending value to client "+value), topic, brokers)
 		_, err = pc.WriteTo([]byte(value), addr) // Send the value to the client
 		if err != nil {
 			log.Println("Error writing to UDP:", err)
-			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Error writing to UDP"))
+			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "origin-server", "Error writing to UDP"), topic, brokers)
 		}
 
 	}
