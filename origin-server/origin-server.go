@@ -15,7 +15,7 @@ import (
 var dictionary = make(map[int]string)
 var a logger.RegistrationLog
 
-var brokers = []string{"192.168.239.251:9092"}
+var brokers = []string{"172.24.230.157:9092"}
 
 const topic = "logs"
 
