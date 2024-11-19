@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
 	"github.com/IBM/sarama"
 	"github.com/fluent/fluent-logger-golang/fluent"
 	"github.com/google/uuid"
@@ -70,11 +69,18 @@ type RegistryMsg struct {
 
 var globalBrokers = []string{"127.0.0.1:9092"}
 var globalTopic = "logs"
-var fluentdLogger *fluent.Fluent = nil
+var globalProducer sarama.SyncProducer = nil
+var globalFluentdLogger *fluent.Fluent = nil
+
+func CHECK(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func initFluentdLogger(fluentdAddress string) error {
 	var err error
-	fluentdLogger, err = fluent.New(fluent.Config{
+	globalFluentdLogger, err = fluent.New(fluent.Config{
 		FluentHost: fluentdAddress,
 		FluentPort: 24224,
 	})
@@ -86,13 +92,16 @@ func initFluentdLogger(fluentdAddress string) error {
 
 func InitLogger(brokers []string, topic string, fluentdAddress string) error {
 	var err error
+	var producer sarama.SyncProducer
 
-	admin, err := sarama.NewClusterAdmin(brokers, sarama.NewConfig())
+	// Create kafka producer
+	config := sarama.NewConfig()
+	config.Producer.Return.Successes = true
+	config.Producer.Return.Errors = true
+	producer, err = sarama.NewSyncProducer(brokers, config)
 	if err != nil {
-		err = fmt.Errorf("Failed to create Sarama cluster admin: %v\n", err)
-		return err
+		return fmt.Errorf("Failed to create Sarama producer: %v\n", err)
 	}
-	defer admin.Close()
 
 	err = initFluentdLogger(fluentdAddress)
 	if err != nil {
@@ -101,27 +110,27 @@ func InitLogger(brokers []string, topic string, fluentdAddress string) error {
 
 	globalBrokers = brokers
 	globalTopic = topic
+	globalProducer = producer
 	return nil
 }
 
-func BroadcastLogNow(log []byte) {
+func CloseLogger() {
+	if globalProducer != nil {
+		globalProducer.Close()
+	}
+	if globalFluentdLogger != nil {
+		globalFluentdLogger.Close()
+	}
+}
+
+func BroadcastLogNow(log []byte) error {
 	if globalBrokers == nil || globalTopic == "" {
-		fmt.Println("Logger not initialized")
-		return
+		return fmt.Errorf("Logger not initialized. Please call InitLogger first")
 	}
 
-	// Configure Sarama Kafka producer
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.Return.Errors = true
-
-	// Create new Kafka producer
-	producer, err := sarama.NewSyncProducer(globalBrokers, config)
-	if err != nil {
-		fmt.Printf("Failed to start Sarama producer: %v\n", err)
-		return
+	if globalProducer == nil {
+		return fmt.Errorf("Logger not initialized. Please call InitLogger first")
 	}
-	defer producer.Close()
 
 	// Create Kafka message
 	msg := &sarama.ProducerMessage{
@@ -130,26 +139,25 @@ func BroadcastLogNow(log []byte) {
 	}
 
 	// Send message to Kafka
-	partition, offset, err := producer.SendMessage(msg)
+	partition, offset, err := globalProducer.SendMessage(msg)
 	if err != nil {
-		fmt.Printf("Failed to send message: %v\n", err)
-		return
+		return fmt.Errorf("Failed to send message: %v\n", err)
 	}
+
 	fmt.Println("Message sent to partition", partition, "with offset", offset, "on topic", globalTopic)
+	return nil
 }
 
-func BroadcastLog(logData []byte) {
-	if fluentdLogger == nil {
-		fmt.Println("Fluentd logger not initialized")
-		return
+func BroadcastLog(logData []byte) error {
+	if globalFluentdLogger == nil {
+		return fmt.Errorf("Fluentd logger not initialized. Please call InitLogger first")
 	}
 
 	// Decode the JSON data to extract the log level and determine the tag
 	var genericLog map[string]interface{}
 	err := json.Unmarshal(logData, &genericLog)
 	if err != nil {
-		fmt.Printf("Failed to parse log data: %v\n", err)
-		return
+		return fmt.Errorf("Failed to parse log data: %v\n", err)
 	}
 
 	// Determine tag based on log level or fallback to a default
@@ -159,10 +167,12 @@ func BroadcastLog(logData []byte) {
 	}
 
 	// Send log to Fluentd
-	err = fluentdLogger.Post(tag, genericLog)
+	err = globalFluentdLogger.Post(tag, genericLog)
 	if err != nil {
-		fmt.Printf("Failed to send log to Fluentd: %v\n", err)
+		return fmt.Errorf("Failed to send log to Fluentd: %v\n", err)
 	}
+
+	return nil
 }
 
 func GenerateRegistrationMsg(nodeID int, serviceName string) []byte {
@@ -273,41 +283,6 @@ func DecodeLog(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
-// func Test() {
-// 	/* Set Kafka hostname and topic */
-// 	brokers := []string{"localhost:9092"}
-// 	topic := "logs"
-
-// 	err := InitLogger(brokers, topic, "localhost")
-// 	if err != nil {
-// 		fmt.Printf("%v", err)
-// 		return
-// 	}
-
-// 	// Produce logs
-// 	BroadcastLog(GenerateRegistrationMsg(1, "foo_service"))
-
-// 	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
-
-// 	BroadcastLog(GenerateWarnLog(1, "foo_service", "This is a warning message"))
-
-// 	BroadcastLog(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
-
-// 	BroadcastLog(GenerateHeartbeatMsg(1, true))
-
-// 	fmt.Println("Logs sent successfully")
-
-// 	// Decode example
-// 	var decodedLog InfoLog
-// 	infoLog := GenerateInfoLog(1, "foo_service", "This is an info message")
-// 	err = DecodeLog(infoLog, &decodedLog)
-// 	if err != nil {
-// 		fmt.Printf("Failed to decode log: %v\n", err)
-// 	} else {
-// 		fmt.Printf("Decoded log: %+v\n", decodedLog)
-// 	}
-// }
-
 func Test() {
 	var err error
 
@@ -317,12 +292,12 @@ func Test() {
 		fmt.Printf("%v\n", err)
 		return
 	}
-	BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
-	BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message"))
+	defer CloseLogger()
 
-	// Produce logs
-	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
-	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is a warning message"))
+	CHECK(BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")))
+	CHECK(BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message")))
+	CHECK(BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message")))
+	CHECK(BroadcastLog(GenerateInfoLog(1, "foo_service", "This is a warning message")))
 
 	fmt.Println("Logs sent successfully")
 }
