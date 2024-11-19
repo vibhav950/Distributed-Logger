@@ -70,9 +70,21 @@ type RegistryMsg struct {
 
 var globalBrokers = []string{"127.0.0.1:9092"}
 var globalTopic = ""
+var fluentdLogger *fluent.Fluent = nil
 
-func InitLogger(brokers []string, topic string, createTopic bool) error {
-	// Create Kafka topic if it does not exist
+func initFluentdLogger(fluentdAddress string) error {
+	var err error
+	fluentdLogger, err = fluent.New(fluent.Config{
+		FluentHost: fluentdAddress,
+		FluentPort: 24224,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize Fluentd logger: %v", err)
+	}
+	return nil
+}
+
+func InitLogger(brokers []string, topic string, fluentdAddress string) error {
 	var err error
 
 	admin, err := sarama.NewClusterAdmin(brokers, sarama.NewConfig())
@@ -82,16 +94,9 @@ func InitLogger(brokers []string, topic string, createTopic bool) error {
 	}
 	defer admin.Close()
 
-	if createTopic {
-		err = admin.CreateTopic(topic, &sarama.TopicDetail{
-			NumPartitions:     1,
-			ReplicationFactor: 1,
-		}, false)
-		if err != nil {
-			err = fmt.Errorf("Failed to create Kafka topic: %v\n", err)
-			return err
-		}
-		fmt.Println("Kafka topic created successfully")
+	err = initFluentdLogger(fluentdAddress)
+	if err != nil {
+		return err
 	}
 
 	globalBrokers = brokers
@@ -131,20 +136,6 @@ func BroadcastLogNow(log []byte) {
 		return
 	}
 	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
-}
-
-var fluentdLogger *fluent.Fluent
-
-func InitFluentdLogger(fluentdAddress string) error {
-	var err error
-	fluentdLogger, err = fluent.New(fluent.Config{
-		FluentHost: fluentdAddress,
-		FluentPort: 24224,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to initialize Fluentd logger: %v", err)
-	}
-	return nil
 }
 
 func BroadcastLog(logData []byte) {
@@ -287,13 +278,11 @@ func DecodeLog(data []byte, v interface{}) error {
 // 	brokers := []string{"localhost:9092"}
 // 	topic := "logs"
 
-// 	err := InitLogger(brokers, topic, false)
+// 	err := InitLogger(brokers, topic, "localhost")
 // 	if err != nil {
 // 		fmt.Printf("%v", err)
 // 		return
 // 	}
-
-// 	InitFluentdLogger("localhost")
 
 // 	// Produce logs
 // 	BroadcastLog(GenerateRegistrationMsg(1, "foo_service"))
@@ -320,14 +309,10 @@ func DecodeLog(data []byte, v interface{}) error {
 // }
 
 func Test() {
-	// Initialize Fluentd logger
-	err := InitFluentdLogger("localhost")
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return
-	}
+	var err error
 
-	err = InitLogger(globalBrokers, "critical_logs", true)
+	/* Initialize the logger */
+	err = InitLogger(globalBrokers, "critical_logs", "localhost")
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return
