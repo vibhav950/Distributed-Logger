@@ -33,7 +33,8 @@ func main() {
 	brokers := []string{"localhost:9092"} // Change brokerIP here
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
-	logger.InitLogger(brokers, topic, fluentdAddress)
+	fluentPort := 24225
+	logger.InitLogger(brokers, topic, fluentdAddress, fluentPort)
 	defer logger.CloseLogger()
 
 	globalNodeID = int(uuid.New().ID())
@@ -50,6 +51,7 @@ func main() {
 	for i := 1; i <= max_key_size; i++ {
 		dictionary[i] = generateRandomString() // Generate a random string for each key
 	}
+	log.Println(dictionary)
 	log.Println("Random strings generated")
 	logger.SendInfoLog(globalNodeID, "origin-server ", "Random strings generated")
 

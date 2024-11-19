@@ -183,7 +183,7 @@ func main() {
 	brokers := []string{"localhost:9092"}
 	topics := []string{"logs", "critical_logs"}
 	elasticIndex := "kafka-logs"
-	logger.InitLogger(brokers, "critical_logs", "localhost") //change brokerIP here
+	logger.InitLogger(brokers, "critical_logs", "localhost", 24225) //change brokerIP here
 	defer logger.CloseLogger()
 	// Initialize Elasticsearch client
 	ec, err := NewElasticClient(elasticIndex)

@@ -108,7 +108,8 @@ func main() {
 	brokers := []string{"localhost:9092"} //change brokerIP here
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
-	logger.InitLogger(brokers, topic, fluentdAddress)
+	fluentPort := 24227
+	logger.InitLogger(brokers, topic, fluentdAddress, fluentPort)
 	defer logger.CloseLogger()
 
 	/* Populate the cache servers */

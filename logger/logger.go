@@ -79,11 +79,11 @@ func CHECK(err error) {
 	}
 }
 
-func initFluentdLogger(fluentdAddress string) error {
+func initFluentdLogger(fluentdAddress string, fluentPort int) error {
 	var err error
 	globalFluentdLogger, err = fluent.New(fluent.Config{
 		FluentHost: fluentdAddress,
-		FluentPort: 24224,
+		FluentPort: fluentPort,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize Fluentd logger: %v", err)
@@ -91,7 +91,7 @@ func initFluentdLogger(fluentdAddress string) error {
 	return nil
 }
 
-func InitLogger(kafkaBrokers []string, kafkaCriticalTopic string, fluentdAddress string) error {
+func InitLogger(kafkaBrokers []string, kafkaCriticalTopic string, fluentdAddress string, fluentdPort int) error {
 	var err error
 	var producer sarama.SyncProducer
 
@@ -104,7 +104,7 @@ func InitLogger(kafkaBrokers []string, kafkaCriticalTopic string, fluentdAddress
 		return fmt.Errorf("Failed to create Sarama producer: %v\n", err)
 	}
 
-	err = initFluentdLogger(fluentdAddress)
+	err = initFluentdLogger(fluentdAddress, fluentdPort)
 	if err != nil {
 		return err
 	}
@@ -287,7 +287,7 @@ func DecodeLog(data []byte, v interface{}) error {
 
 func Test() {
 	/* Initialize the logger */
-	err := InitLogger(globalBrokers, "critical_logs", "localhost")
+	err := InitLogger(globalBrokers, "critical_logs", "localhost", 24224)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return
