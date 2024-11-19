@@ -34,12 +34,14 @@ const nkeys = 100_000
 
 func main() {
 	nodeID = int(uuid.New().ID())
+
 	err := logger.InitLogger(brokers, topic, false)
 	if err != nil {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
 		return
 	}
 	log.Println("Logger initialized")
+	go logger.StartHeartbeatRoutine(nodeID)
 
 	log.Printf("Starting cache server with unique ID: %d\n", nodeID)
 	logger.BroadcastLog(logger.GenerateRegistrationMsg(nodeID, "cache_server"))

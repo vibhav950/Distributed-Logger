@@ -1,12 +1,12 @@
-package logger
+package main
 
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/fluent/fluent-logger-golang/fluent"
 	"github.com/google/uuid"
 )
 
@@ -133,17 +133,42 @@ func InitLogger(brokers []string, topic string, createTopic bool) error {
 // 	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
 // }
 
-func BroadcastLog(log []byte) {
-	const fluentdAddress = "127.0.0.1:24224" // Fluentd default forward address
+var fluentdLogger *fluent.Fluent
 
-	conn, err := net.Dial("tcp", fluentdAddress)
+func InitFluentdLogger(fluentdAddress string) error {
+	var err error
+	fluentdLogger, err = fluent.New(fluent.Config{
+		FluentHost: fluentdAddress,
+		FluentPort: 24224,
+	})
 	if err != nil {
-		fmt.Printf("Failed to connect to Fluentd: %v\n", err)
+		return fmt.Errorf("failed to initialize Fluentd logger: %v", err)
+	}
+	return nil
+}
+
+func BroadcastLog(logData []byte) {
+	if fluentdLogger == nil {
+		fmt.Println("Fluentd logger not initialized")
 		return
 	}
-	defer conn.Close()
 
-	_, err = conn.Write(log)
+	// Decode the JSON data to extract the log level and determine the tag
+	var genericLog map[string]interface{}
+	err := json.Unmarshal(logData, &genericLog)
+	if err != nil {
+		fmt.Printf("Failed to parse log data: %v\n", err)
+		return
+	}
+
+	// Determine tag based on log level or fallback to a default
+	tag, ok := genericLog["log_level"].(string)
+	if !ok || tag == "" {
+		tag = "default"
+	}
+
+	// Send log to Fluentd
+	err = fluentdLogger.Post(tag, genericLog)
 	if err != nil {
 		fmt.Printf("Failed to send log to Fluentd: %v\n", err)
 	}
@@ -257,39 +282,56 @@ func DecodeLog(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
 
-func Test() {
-	/* Set Kafka hostname and topic */
-	brokers := []string{"localhost:9092"}
-	topic := "logs"
+// func Test() {
+// 	/* Set Kafka hostname and topic */
+// 	brokers := []string{"localhost:9092"}
+// 	topic := "logs"
 
-	err := InitLogger(brokers, topic, false)
+// 	err := InitLogger(brokers, topic, false)
+// 	if err != nil {
+// 		fmt.Printf("%v", err)
+// 		return
+// 	}
+
+// 	InitFluentdLogger("localhost")
+
+// 	// Produce logs
+// 	BroadcastLog(GenerateRegistrationMsg(1, "foo_service"))
+
+// 	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
+
+// 	BroadcastLog(GenerateWarnLog(1, "foo_service", "This is a warning message"))
+
+// 	BroadcastLog(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
+
+// 	BroadcastLog(GenerateHeartbeatMsg(1, true))
+
+// 	fmt.Println("Logs sent successfully")
+
+// 	// Decode example
+// 	var decodedLog InfoLog
+// 	infoLog := GenerateInfoLog(1, "foo_service", "This is an info message")
+// 	err = DecodeLog(infoLog, &decodedLog)
+// 	if err != nil {
+// 		fmt.Printf("Failed to decode log: %v\n", err)
+// 	} else {
+// 		fmt.Printf("Decoded log: %+v\n", decodedLog)
+// 	}
+// }
+
+func Test() {
+	// Initialize Fluentd logger
+	err := InitFluentdLogger("localhost")
 	if err != nil {
-		fmt.Printf("%v", err)
+		fmt.Printf("%v\n", err)
 		return
 	}
 
 	// Produce logs
-	BroadcastLog(GenerateRegistrationMsg(1, "foo_service"))
-
 	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
-
 	BroadcastLog(GenerateWarnLog(1, "foo_service", "This is a warning message"))
 
-	BroadcastLog(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
-
-	BroadcastLog(GenerateHeartbeatMsg(1, true))
-
 	fmt.Println("Logs sent successfully")
-
-	// Decode example
-	var decodedLog InfoLog
-	infoLog := GenerateInfoLog(1, "foo_service", "This is an info message")
-	err = DecodeLog(infoLog, &decodedLog)
-	if err != nil {
-		fmt.Printf("Failed to decode log: %v\n", err)
-	} else {
-		fmt.Printf("Decoded log: %+v\n", decodedLog)
-	}
 }
 
 func main() {

@@ -44,6 +44,8 @@ func main() {
 		return
 	}
 
+	go logger.StartHeartbeatRoutine(nodeID)
+
 	log.Println("Starting the origin server with unique ID:", nodeID)
 	logger.BroadcastLog(logger.GenerateRegistrationMsg(nodeID, "origin-server")) // Broadcast the registration log
 
