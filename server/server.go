@@ -131,6 +131,11 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 			continue
 		}
 
+		if len(logData) == 4 {
+			// registration message
+			logData["status"] = "UP"
+		}
+
 		// Store the log in Elasticsearch
 		err = ec.IndexLog(logData)
 		if err != nil {
