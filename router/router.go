@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"example.com/logger"
 	"github.com/google/uuid"
 )
@@ -104,7 +105,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"172.16.172.33:9092"}
+	brokers := []string{"localhost:9092"}
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))

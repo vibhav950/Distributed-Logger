@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"example.com/logger"
+
 	"github.com/IBM/sarama"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/fatih/color"
@@ -50,15 +52,19 @@ func (ec *ElasticClient) IndexLog(logData map[string]interface{}) error {
 	serviceColor := color.New(color.FgCyan).SprintFunc()
 
 	// Print the log message with color based on the log level
-	switch logData["log_level"] {
-	case "INFO":
+	switch {
+	case logData["log_level"] == "INFO":
 		fmt.Printf("  %s - %s [%s] - %s\n", infoColor(logData["log_level"]), messageColor(logData["message"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
-	case "WARN":
+	case logData["log_level"] == "WARN":
 		fmt.Printf("  %s - %s [%s] - %s\n", warnColor(logData["log_level"]), messageColor(logData["message"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
-	case "ERROR":
+	case logData["log_level"] == "ERROR":
 		fmt.Printf("  %s - %s [%s] - %s\n", errorColor(logData["log_level"]), messageColor(logData["message"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+	case logData["message_type"] == "REGISTRATION":
+		fmt.Printf("  %s - %s [%s] - %s\n", otherColor(logData["message_type"]), messageColor(logData["service_name"]), serviceColor(int(logData["node_id"].(float64))), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+	case logData["message_type"] == "HEARTBEAT":
+		fmt.Printf("  %s - %s [%s] - %s\n", otherColor(logData["message_type"]), messageColor(logData["status"]), serviceColor(int(logData["node_id"].(float64))), timeColor(time.Now().Format("2006-01-02 15:04:05")))
 	default:
-		fmt.Printf("  %s - %s [%s] - %s\n", otherColor(logData["message_type"]), messageColor(logData["status"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+		fmt.Printf("%s %s\n", logData, timeColor(time.Now().Format("2006-01-02 15:04:05")))
 	}
 	data, err := json.Marshal(logData)
 	if err != nil {
@@ -101,33 +107,33 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 		// 	// registration message
 		// 	logData["status"] = "UP"
 		// }
-
-		nodeID := int(logData["node_id"].(float64))
 		messageType := logData["message_type"].(string)
+		if messageType == "REGISTRATION" || messageType == "HEARTBEAT" || messageType == "LOG" {
+			nodeID := int(logData["node_id"].(float64))
 
-		if messageType == "registration" {
-			// Registration message: initialize the node's status
-			logData["status"] = "UP"
-			nodeMap.Store(nodeID, &NodeStatus{
-				LastHeartbeat: time.Now(),
-				Status:        "UP",
-			})
-			fmt.Printf("Node %d registered and marked UP\n", nodeID)
-		} else if messageType == "heartbeat" {
-			// Heartbeat message: update the node's last heartbeat
-			if val, ok := nodeMap.Load(nodeID); ok {
-				nodeStatus := val.(*NodeStatus)
-				nodeStatus.LastHeartbeat = time.Now()
-				nodeMap.Store(nodeID, nodeStatus)
-				fmt.Printf("Heartbeat received from Node %d\n", nodeID)
+			if messageType == "REGISTRATION" {
+				// Registration message: initialize the node's status
+				logData["STATUS"] = "UP"
+				nodeMap.Store(nodeID, &NodeStatus{
+					LastHeartbeat: time.Now(),
+					Status:        "UP",
+				})
+			} else if messageType == "HEARTBEAT" {
+				// Heartbeat message: update the node's last heartbeat
+				if val, ok := nodeMap.Load(nodeID); ok {
+					nodeStatus := val.(*NodeStatus)
+					nodeStatus.LastHeartbeat = time.Now()
+					nodeMap.Store(nodeID, nodeStatus)
+				}
+			}
+
+			// Store the log in Elasticsearch
+			err = ec.IndexLog(logData)
+			if err != nil {
+				fmt.Printf("Failed to index log: %v\n", err)
 			}
 		}
 
-		// Store the log in Elasticsearch
-		err = ec.IndexLog(logData)
-		if err != nil {
-			fmt.Printf("Failed to index log: %v\n", err)
-		}
 		// Search for all documents in the index
 		// searchRes, err := ec.Client.Search(
 		// 	ec.Client.Search.WithIndex(ec.Index),
@@ -161,11 +167,12 @@ func monitorNodes(nodeMap *sync.Map) {
 		nodeMap.Range(func(key, value interface{}) bool {
 			nodeID := key.(int)
 			nodeStatus := value.(*NodeStatus)
-
 			if currentTime.Sub(nodeStatus.LastHeartbeat) > 30*time.Second && nodeStatus.Status == "UP" {
 				nodeStatus.Status = "DOWN"
 				nodeMap.Store(nodeID, nodeStatus)
-				fmt.Printf("Node %d has died (no heartbeat in 30s)\n", nodeID)
+				nodeMap.Delete(nodeID)
+				logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "server", fmt.Sprintf("%d timed out", nodeID), "500", "node timed out"))
+				fmt.Printf("Node %d marked as DOWN\n", nodeID)
 			}
 
 			return true

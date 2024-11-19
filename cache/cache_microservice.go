@@ -32,7 +32,7 @@ const nkeys = 100_000
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"172.16.172.33:9092"}
+	brokers := []string{"localhost:9092"}
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))
@@ -46,7 +46,6 @@ func main() {
 	go logger.StartHeartbeatRoutine(nodeID)
 
 	log.Printf("Starting cache server with unique ID: %d\n", nodeID)
-	logger.BroadcastLogNow(logger.GenerateRegistrationMsg(nodeID, "cache_server"))
 
 	arguments := os.Args
 	if len(arguments) == 1 {

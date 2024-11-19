@@ -68,7 +68,7 @@ type RegistryMsg struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-var globalBrokers = []string{"172.16.172.33:9092"}
+var globalBrokers = []string{"localhost:9092"}
 var globalTopic = ""
 var globalProducer sarama.SyncProducer = nil
 var globalFluentdLogger *fluent.Fluent = nil
