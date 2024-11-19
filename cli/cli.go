@@ -104,7 +104,12 @@ func (ec *ElasticClient) ShowLogs(level string, limit int) {
 	hits := logs["hits"].(map[string]interface{})["hits"].([]interface{})
 	for _, hit := range hits {
 		logData := hit.(map[string]interface{})["_source"].(map[string]interface{})
-		if logData["message_type"] != nil {
+		messageType, ok := logData["message_type"].(string)
+		if !ok {
+			log.Printf("Invalid or missing 'message_type': %+v", logData)
+			return
+		}
+		if messageType != "" {
 			messageType := logData["message_type"].(string)
 
 			switch messageType {

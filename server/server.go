@@ -107,7 +107,11 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 		// 	// registration message
 		// 	logData["status"] = "UP"
 		// }
-		messageType := logData["message_type"].(string)
+		messageType, ok := logData["message_type"].(string)
+		if !ok {
+			log.Printf("Invalid or missing 'message_type': %+v", logData)
+			return
+		}
 		if messageType == "REGISTRATION" || messageType == "HEARTBEAT" || messageType == "LOG" {
 			nodeID := int(logData["node_id"].(float64))
 
