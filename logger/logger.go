@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/fluent/fluent-logger-golang/fluent"
 	"github.com/google/uuid"
@@ -289,16 +290,17 @@ func DecodeLog(data []byte, v interface{}) error {
 
 func Test() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
-	topic := "critical_logs"
-	fluentdAddress := "localhost"
-	CHECK(InitLogger(brokers, topic, fluentdAddress))
-	defer CloseLogger()
+	err := InitLogger(globalBrokers, "critical_logs", "localhost")
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+	BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
+	BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message"))
 
-	CHECK(BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")))
-	CHECK(BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message")))
-	CHECK(BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message")))
-	CHECK(BroadcastLog(GenerateInfoLog(1, "foo_service", "This is a warning message")))
+	// Produce logs
+	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
+	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
 
 	fmt.Println("Logs sent successfully")
 }

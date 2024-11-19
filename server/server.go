@@ -66,9 +66,11 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/fatih/color"
 )
 
 // ElasticClient wraps the Elasticsearch client for indexing logs
@@ -94,6 +96,24 @@ func NewElasticClient(index string) (*ElasticClient, error) {
 
 // IndexLog stores a log in Elasticsearch
 func (ec *ElasticClient) IndexLog(logData map[string]interface{}) error {
+	infoColor := color.New(color.FgGreen).SprintFunc()
+	warnColor := color.New(color.FgYellow).SprintFunc()
+	errorColor := color.New(color.FgRed).SprintFunc()
+	otherColor := color.New(color.FgBlue).SprintFunc()
+	messageColor := color.New(color.FgWhite).SprintFunc()
+	timeColor := color.New(color.FgHiWhite).SprintFunc()
+
+	// Print the log message with color based on the log level
+	switch logData["log_level"] {
+	case "INFO":
+		fmt.Printf("  %s - %s - %s\n", infoColor(logData["log_level"]), messageColor(logData["message"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+	case "WARN":
+		fmt.Printf("  %s - %s - %s\n", warnColor(logData["log_level"]), messageColor(logData["message"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+	case "ERROR":
+		fmt.Printf("  %s - %s - %s\n", errorColor(logData["log_level"]), messageColor(logData["message"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+	default:
+		fmt.Printf("  %s - %s - %s\n", otherColor(logData["message_type"]), messageColor(logData["status"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+	}
 	data, err := json.Marshal(logData)
 	if err != nil {
 		return err
@@ -115,7 +135,7 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 	}
 	defer consumer.Close()
 
-	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetOldest)
+	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
 	if err != nil {
 		log.Fatalf("Error creating partition consumer: %v", err)
 	}
@@ -140,29 +160,26 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 		err = ec.IndexLog(logData)
 		if err != nil {
 			fmt.Printf("Failed to index log: %v\n", err)
-		} else {
-			fmt.Printf("Log indexed: %s\n", logData)
 		}
-
 		// Search for all documents in the index
-		searchRes, err := ec.Client.Search(
-			ec.Client.Search.WithIndex(ec.Index),
-			ec.Client.Search.WithPretty(),
-		)
-		if err != nil {
-			fmt.Printf("failed to retrieve all documents: %s", err)
-		}
+		// searchRes, err := ec.Client.Search(
+		// 	ec.Client.Search.WithIndex(ec.Index),
+		// 	ec.Client.Search.WithPretty(),
+		// )
+		// if err != nil {
+		// 	fmt.Printf("failed to retrieve all documents: %s", err)
+		// }
 
-		// Print the entire database
-		var searchResult map[string]interface{}
-		if err := json.NewDecoder(searchRes.Body).Decode(&searchResult); err != nil {
-			fmt.Printf("failed to decode search result: %s", err)
-		}
-		// Pretty-print the search results
-		pretty, _ := json.MarshalIndent(searchResult, "", "  ")
-		fmt.Printf("Entire Database:\n%s\n", string(pretty))
+		// // Print the entire database
+		// var searchResult map[string]interface{}
+		// if err := json.NewDecoder(searchRes.Body).Decode(&searchResult); err != nil {
+		// 	fmt.Printf("failed to decode search result: %s", err)
+		// }
+		// // Pretty-print the search results
+		// pretty, _ := json.MarshalIndent(searchResult, "", "  ")
+		// fmt.Printf("Entire Database:\n%s\n", string(pretty))
 
-		searchRes.Body.Close()
+		// searchRes.Body.Close()
 	}
 
 }
