@@ -68,7 +68,7 @@ type RegistryMsg struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-var globalBrokers = []string{}
+var globalBrokers = []string{"127.0.0.1:9092"}
 var globalTopic = ""
 
 func InitLogger(brokers []string, topic string, createTopic bool) error {
@@ -99,39 +99,39 @@ func InitLogger(brokers []string, topic string, createTopic bool) error {
 	return nil
 }
 
-// func BroadcastLog(log []byte) {
-// 	if globalBrokers == nil || globalTopic == "" {
-// 		fmt.Println("Logger not initialized")
-// 		return
-// 	}
+func BroadcastLogNow(log []byte) {
+	if globalBrokers == nil || globalTopic == "" {
+		fmt.Println("Logger not initialized")
+		return
+	}
 
-// 	// Configure Sarama Kafka producer
-// 	config := sarama.NewConfig()
-// 	config.Producer.Return.Successes = true
-// 	config.Producer.Return.Errors = true
+	// Configure Sarama Kafka producer
+	config := sarama.NewConfig()
+	config.Producer.Return.Successes = true
+	config.Producer.Return.Errors = true
 
-// 	// Create new Kafka producer
-// 	producer, err := sarama.NewSyncProducer(globalBrokers, config)
-// 	if err != nil {
-// 		fmt.Printf("Failed to start Sarama producer: %v\n", err)
-// 		return
-// 	}
-// 	defer producer.Close()
+	// Create new Kafka producer
+	producer, err := sarama.NewSyncProducer(globalBrokers, config)
+	if err != nil {
+		fmt.Printf("Failed to start Sarama producer: %v\n", err)
+		return
+	}
+	defer producer.Close()
 
-// 	// Create Kafka message
-// 	msg := &sarama.ProducerMessage{
-// 		Topic: globalTopic,
-// 		Value: sarama.ByteEncoder(log),
-// 	}
+	// Create Kafka message
+	msg := &sarama.ProducerMessage{
+		Topic: globalTopic,
+		Value: sarama.ByteEncoder(log),
+	}
 
-// 	// Send message to Kafka
-// 	partition, offset, err := producer.SendMessage(msg)
-// 	if err != nil {
-// 		fmt.Printf("Failed to send message: %v\n", err)
-// 		return
-// 	}
-// 	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
-// }
+	// Send message to Kafka
+	partition, offset, err := producer.SendMessage(msg)
+	if err != nil {
+		fmt.Printf("Failed to send message: %v\n", err)
+		return
+	}
+	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
+}
 
 var fluentdLogger *fluent.Fluent
 
@@ -326,6 +326,14 @@ func Test() {
 		fmt.Printf("%v\n", err)
 		return
 	}
+
+	err = InitLogger(globalBrokers, "critical_logs", true)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return
+	}
+	BroadcastLogNow(GenerateInfoLog(1, "foo_service", "This is an info message"))
+	BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message"))
 
 	// Produce logs
 	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
