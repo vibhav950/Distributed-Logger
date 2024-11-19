@@ -105,7 +105,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"localhost:9092"} //change brokerIP here
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.InitLogger(brokers, topic, fluentdAddress)

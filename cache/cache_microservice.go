@@ -22,7 +22,7 @@ var cacheMutex sync.Mutex
 var nodeID int
 
 const topic = "cache_logs"
-const maxCacheSize = 1000
+const maxCacheSize = 100
 
 var originServers []string
 var count int
@@ -32,7 +32,7 @@ const nkeys = 100_000
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"localhost:9092"} //change brokerIP here
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.InitLogger(brokers, topic, fluentdAddress)

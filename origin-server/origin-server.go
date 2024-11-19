@@ -30,7 +30,7 @@ func generateRandomString() string {
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"localhost:9092"} // Change brokerIP here
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.InitLogger(brokers, topic, fluentdAddress)

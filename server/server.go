@@ -171,8 +171,7 @@ func monitorNodes(nodeMap *sync.Map) {
 				nodeStatus.Status = "DOWN"
 				nodeMap.Store(nodeID, nodeStatus)
 				nodeMap.Delete(nodeID)
-				logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "server", fmt.Sprintf("%d timed out", nodeID), "500", "node timed out"))
-				fmt.Printf("Node %d marked as DOWN\n", nodeID)
+				logger.SendErrorLog(nodeID, "server", fmt.Sprintf("%d timed out", nodeID), "500", "node timed out")
 			}
 
 			return true
@@ -184,7 +183,8 @@ func main() {
 	brokers := []string{"localhost:9092"}
 	topics := []string{"logs", "critical_logs"}
 	elasticIndex := "kafka-logs"
-
+	logger.InitLogger(brokers, "critical_logs", "localhost") //change brokerIP here
+	defer logger.CloseLogger()
 	// Initialize Elasticsearch client
 	ec, err := NewElasticClient(elasticIndex)
 	if err != nil {

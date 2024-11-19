@@ -68,7 +68,7 @@ type RegistryMsg struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-var globalBrokers = []string{"localhost:9092"}
+var globalBrokers = []string{"localhost:9092"} //change brokerIP here
 var globalTopic = ""
 var globalProducer sarama.SyncProducer = nil
 var globalFluentdLogger *fluent.Fluent = nil
@@ -142,12 +142,11 @@ func broadcastLogNow(log []byte) error {
 	}
 
 	// Send message to Kafka
-	partition, offset, err := globalProducer.SendMessage(msg)
+	_, _, err := globalProducer.SendMessage(msg)
 	if err != nil {
 		return fmt.Errorf("Failed to send message: %v\n", err)
 	}
 
-	fmt.Println("[DEBUG] Message sent to partition", partition, "with offset", offset, "on topic", globalTopic)
 	return nil
 }
 
@@ -175,7 +174,6 @@ func broadcastLog(logData []byte) error {
 		return fmt.Errorf("Failed to send log to Fluentd: %v\n", err)
 	}
 
-	fmt.Println("[DEBUG] Log sent to Fluentd with tag", tag)
 	return nil
 }
 
@@ -261,7 +259,6 @@ func StartHeartbeatRoutine(nodeID int) {
 	for {
 		broadcastLogNow(GenerateHeartbeatMsg(nodeID, true))
 		time.Sleep(15 * time.Second)
-		fmt.Println("[DEBUG] Heartbeat sent")
 	}
 }
 
