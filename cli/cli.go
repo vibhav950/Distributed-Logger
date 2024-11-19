@@ -54,6 +54,7 @@ func (ec *ElasticClient) SearchLogs(query string) (map[string]interface{}, error
 // ShowLogs fetches logs based on the specified level and prints them
 func (ec *ElasticClient) ShowLogs(level string, limit int) {
 	var query string
+	fmt.Println(level, limit)
 
 	if level == "all" {
 		query = fmt.Sprintf(`{
@@ -62,7 +63,7 @@ func (ec *ElasticClient) ShowLogs(level string, limit int) {
 			},
 			"size": %d
 		}`, limit)
-	} else {
+	} else if level == "info" {
 		query = fmt.Sprintf(`{
 			"query": {
 				"match": {
@@ -71,6 +72,28 @@ func (ec *ElasticClient) ShowLogs(level string, limit int) {
 			},
 			"size": %d
 		}`, level, limit)
+	} else {
+		query = fmt.Sprintf(`{
+			"query": {
+				"bool": {
+					"should": [
+					{
+						"terms": {
+						"log_level.keyword": ["WARN", "ERROR"]
+						}
+					},
+					{
+						"terms": {
+						"message_type.keyword": ["REGISTRATION", "HEARTBEAT"]
+						}
+					}
+					],
+					"minimum_should_match": 1
+				}
+				}
+				,
+			"size": %d
+		}`, limit)
 	}
 
 	logs, err := ec.SearchLogs(query)
@@ -81,17 +104,34 @@ func (ec *ElasticClient) ShowLogs(level string, limit int) {
 	hits := logs["hits"].(map[string]interface{})["hits"].([]interface{})
 	for _, hit := range hits {
 		logData := hit.(map[string]interface{})["_source"].(map[string]interface{})
-		level, levelOk := logData["log_level"].(string)
-		message, messageOk := logData["message"].(string)
+		if logData["message_type"] != nil {
+			messageType := logData["message_type"].(string)
 
-		if !levelOk {
-			level = "unknown"
-		}
-		if !messageOk {
-			message = "No message"
-		}
+			switch messageType {
+			case "LOG":
+				{
+					level, levelOk := logData["log_level"].(string)
+					message, messageOk := logData["message"].(string)
 
-		fmt.Printf("Level: %s - Message: %s\n", level, message)
+					if !levelOk {
+						level = "unknown"
+					}
+					if !messageOk {
+						message = "No message"
+					}
+
+					fmt.Printf("%s - Message: %s\n", level, message)
+				}
+			case "HEARTBEAT":
+				{
+					fmt.Printf("%s - id: %d - status: %s\n", messageType, int(logData["node_id"].(float64)), logData["status"].(string))
+				}
+			case "REGISTRATION":
+				{
+					fmt.Printf("%s - id: %d - service name: %s\n", messageType, int(logData["node_id"].(float64)), logData["service_name"].(string))
+				}
+			}
+		}
 	}
 }
 
