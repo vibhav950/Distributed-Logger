@@ -18,8 +18,6 @@ var cfg = elasticsearch.Config{
 	Addresses: []string{
 		"https://localhost:9200", // Use HTTPS
 	},
-	Username: "elastic",              // Replace with your username
-	Password: "a+4JEIQuMUa2rVZnxJ*v", // Replace with your password
 	Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true, // Disable SSL verification (only for development)

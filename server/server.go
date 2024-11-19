@@ -81,6 +81,9 @@ type ElasticClient struct {
 func NewElasticClient(index string) (*ElasticClient, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{"http://localhost:9200"},
+		Username:  "elastic",              // Add your username here
+		Password:  "XXiqV27E1FcB*Qeh0jox", // Add your password here
+
 	}
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
@@ -135,12 +138,33 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 		} else {
 			fmt.Printf("Log indexed: %s\n", logData)
 		}
+
+		// Search for all documents in the index
+		searchRes, err := ec.Client.Search(
+			ec.Client.Search.WithIndex(ec.Index),
+			ec.Client.Search.WithPretty(),
+		)
+		if err != nil {
+			fmt.Printf("failed to retrieve all documents: %s", err)
+		}
+
+		// Print the entire database
+		var searchResult map[string]interface{}
+		if err := json.NewDecoder(searchRes.Body).Decode(&searchResult); err != nil {
+			fmt.Printf("failed to decode search result: %s", err)
+		}
+		// Pretty-print the search results
+		pretty, _ := json.MarshalIndent(searchResult, "", "  ")
+		fmt.Printf("Entire Database:\n%s\n", string(pretty))
+
+		searchRes.Body.Close()
 	}
+
 }
 
 func main() {
-	brokers := []string{"172.24.230.157:9092"}
-	topics := []string{"registration_logs", "info_logs", "warn_logs", "error_logs", "heartbeat_logs"}
+	brokers := []string{"localhost:9092"}
+	topics := []string{"logs", "critical_logs"}
 	elasticIndex := "kafka-logs"
 
 	// Initialize Elasticsearch client

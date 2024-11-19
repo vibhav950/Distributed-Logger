@@ -60,9 +60,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/IBM/sarama"
 	"github.com/elastic/go-elasticsearch/v8"
@@ -82,8 +84,17 @@ var esClient *elasticsearch.Client
 
 // Initialize Elasticsearch client
 func initElasticsearch() error {
-	cfg := elasticsearch.Config{
-		Addresses: []string{"http://localhost:9200"}, // Replace with your Elasticsearch address
+	var cfg = elasticsearch.Config{
+		Addresses: []string{
+			"https://127.0.0.1:9200", // Use HTTPS
+		},
+		Username: "elastic",              // Replace with your username
+		Password: "XXiqV27E1FcB*Qeh0jox", // Replace with your password
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // Disable SSL verification (only for development)
+			},
+		},
 	}
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
@@ -108,7 +119,12 @@ func storeLogInElasticsearch(index string, logEntry LogEntry) {
 		return
 	}
 
-	req := esClient.Index(index, bytes.NewReader(data))
+	req, err := esClient.Index(index, bytes.NewReader(data))
+	if err != nil {
+		log.Printf("Error indexing log: %v", err)
+		return
+	}
+	defer req.Body.Close()
 	if req.IsError() {
 		log.Printf("Error indexing log: %s", req)
 	} else {
