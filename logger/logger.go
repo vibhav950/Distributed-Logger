@@ -239,7 +239,7 @@ func SendErrorLog(nodeID int, serviceName string, message string, errorCode stri
 	CHECK(broadcastLogNow(jsonData))
 }
 
-func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
+func generateHeartbeatMsg(nodeID int, healthy bool) []byte {
 	status := "UP"
 	if !healthy {
 		status = "DOWN"
@@ -257,7 +257,7 @@ func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
 
 func StartHeartbeatRoutine(nodeID int) {
 	for {
-		broadcastLogNow(GenerateHeartbeatMsg(nodeID, true))
+		broadcastLogNow(generateHeartbeatMsg(nodeID, true))
 		time.Sleep(15 * time.Second)
 	}
 }
