@@ -102,17 +102,18 @@ func (ec *ElasticClient) IndexLog(logData map[string]interface{}) error {
 	otherColor := color.New(color.FgBlue).SprintFunc()
 	messageColor := color.New(color.FgWhite).SprintFunc()
 	timeColor := color.New(color.FgHiWhite).SprintFunc()
+	serviceColor := color.New(color.FgCyan).SprintFunc()
 
 	// Print the log message with color based on the log level
 	switch logData["log_level"] {
 	case "INFO":
-		fmt.Printf("  %s - %s - %s\n", infoColor(logData["log_level"]), messageColor(logData["message"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+		fmt.Printf("  %s - %s [%s] - %s\n", infoColor(logData["log_level"]), messageColor(logData["message"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
 	case "WARN":
-		fmt.Printf("  %s - %s - %s\n", warnColor(logData["log_level"]), messageColor(logData["message"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+		fmt.Printf("  %s - %s [%s] - %s\n", warnColor(logData["log_level"]), messageColor(logData["message"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
 	case "ERROR":
-		fmt.Printf("  %s - %s - %s\n", errorColor(logData["log_level"]), messageColor(logData["message"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+		fmt.Printf("  %s - %s [%s] - %s\n", errorColor(logData["log_level"]), messageColor(logData["message"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
 	default:
-		fmt.Printf("  %s - %s - %s\n", otherColor(logData["message_type"]), messageColor(logData["status"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
+		fmt.Printf("  %s - %s [%s] - %s\n", otherColor(logData["message_type"]), messageColor(logData["status"]), serviceColor(logData["service_name"]), timeColor(time.Now().Format("2006-01-02 15:04:05")))
 	}
 	data, err := json.Marshal(logData)
 	if err != nil {

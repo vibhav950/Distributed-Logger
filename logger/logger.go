@@ -290,7 +290,7 @@ func DecodeLog(data []byte, v interface{}) error {
 
 func Test() {
 	/* Initialize the logger */
-	err := InitLogger(globalBrokers, "critical_logs", "localhost")
+	err = InitLogger(globalBrokers, "critical_logs", "localhost")
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return
