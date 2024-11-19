@@ -44,12 +44,12 @@ func main() {
 	go logger.StartHeartbeatRoutine(nodeID)
 
 	log.Printf("Starting cache server with unique ID: %d\n", nodeID)
-	logger.BroadcastLog(logger.GenerateRegistrationMsg(nodeID, "cache_server"))
+	logger.BroadcastLogNow(logger.GenerateRegistrationMsg(nodeID, "cache_server"))
 
 	arguments := os.Args
 	if len(arguments) == 1 {
 		fmt.Println("Please provide a host:port string in the input.")
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "No host:port provided in arguments", "ARGUMENT_ERROR", "Missing input argument"))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "No host:port provided in arguments", "ARGUMENT_ERROR", "Missing input argument"))
 		return
 	}
 	CONNECT := arguments[1]
@@ -57,14 +57,14 @@ func main() {
 	addr, err := net.ResolveUDPAddr("udp", CONNECT)
 	if err != nil {
 		fmt.Printf("Error resolving address: %v\n", err)
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to resolve UDP address", "ADDRESS_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to resolve UDP address", "ADDRESS_ERROR", fmt.Sprintf("%v", err)))
 		return
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		fmt.Printf("Error listening: %v\n", err)
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to start UDP listener", "LISTEN_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to start UDP listener", "LISTEN_ERROR", fmt.Sprintf("%v", err)))
 		return
 	}
 	defer conn.Close()
@@ -74,7 +74,7 @@ func main() {
 
 	if !populateServers() {
 		fmt.Println("Error populating servers.")
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to populate origin servers", "CONFIG_ERROR", "Check servers.txt configuration"))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to populate origin servers", "CONFIG_ERROR", "Check servers.txt configuration"))
 		return
 	}
 
@@ -100,7 +100,7 @@ func main() {
 		n, clientAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			fmt.Printf("Error while reading from UDP: %v\n", err)
-			logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Error reading UDP packet", "NETWORK_ERROR", fmt.Sprintf("%v", err)))
+			logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Error reading UDP packet", "NETWORK_ERROR", fmt.Sprintf("%v", err)))
 			bufferPool.Put(buffer)
 			continue
 		}
@@ -119,21 +119,21 @@ func handlePacket(conn *net.UDPConn, data []byte, addr *net.UDPAddr) {
 	key, err := strconv.Atoi(string(data))
 	if err != nil {
 		fmt.Printf("Error while converting from string to int: %v\n", err)
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to convert data to integer", "DATA_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to convert data to integer", "DATA_ERROR", fmt.Sprintf("%v", err)))
 		return
 	}
 
 	response := getVal(key)
 	if response == "" {
 		fmt.Printf("Error retrieving data.\n")
-		logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "cache_server", fmt.Sprintf("Data for key %d not found in cache or origin servers", key)))
+		logger.BroadcastLogNow(logger.GenerateWarnLog(nodeID, "cache_server", fmt.Sprintf("Data for key %d not found in cache or origin servers", key)))
 		return
 	}
 
 	_, err = conn.WriteToUDP([]byte(response), addr)
 	if err != nil {
 		fmt.Printf("Error writing to UDP: %v\n", err)
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to send UDP response", "WRITE_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to send UDP response", "WRITE_ERROR", fmt.Sprintf("%v", err)))
 	}
 }
 
@@ -143,7 +143,7 @@ func getVal(key int) string {
 		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "cache_server", fmt.Sprintf("Cache miss for key: %d", key)))
 		val, err := getFromOrigin(key)
 		if err != nil || val == "" {
-			logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "cache_server", fmt.Sprintf("Key %d not found in origin servers", key)))
+			logger.BroadcastLogNow(logger.GenerateWarnLog(nodeID, "cache_server", fmt.Sprintf("Key %d not found in origin servers", key)))
 			return ""
 		}
 		addToCache(key, val)
@@ -158,7 +158,7 @@ func addToCache(key int, val string) {
 	defer cacheMutex.Unlock()
 
 	if cacheSize >= maxCacheSize {
-		logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "cache_server", "Cache size exceeded limit, removing random key"))
+		logger.BroadcastLogNow(logger.GenerateWarnLog(nodeID, "cache_server", "Cache size exceeded limit, removing random key"))
 		removeRandomKey()
 	}
 
@@ -186,13 +186,13 @@ func getFromOrigin(key int) (string, error) {
 
 	serverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to resolve origin server address", "ADDRESS_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to resolve origin server address", "ADDRESS_ERROR", fmt.Sprintf("%v", err)))
 		return "", err
 	}
 
 	conn, err := net.DialUDP("udp", nil, serverAddr)
 	if err != nil {
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to connect to origin server", "CONNECTION_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to connect to origin server", "CONNECTION_ERROR", fmt.Sprintf("%v", err)))
 		return "", err
 	}
 	defer conn.Close()
@@ -201,7 +201,7 @@ func getFromOrigin(key int) (string, error) {
 		message := []byte(fmt.Sprintf("%d", key))
 		_, err = conn.Write(message)
 		if err != nil {
-			logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Error writing to origin server", "WRITE_ERROR", fmt.Sprintf("%v", err)))
+			logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Error writing to origin server", "WRITE_ERROR", fmt.Sprintf("%v", err)))
 			return "", err
 		}
 
@@ -211,10 +211,10 @@ func getFromOrigin(key int) (string, error) {
 		n, _, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				logger.BroadcastLog(logger.GenerateWarnLog(nodeID, "cache_server", fmt.Sprintf("Timeout while waiting for response from origin server (attempt %d)", attempt+1)))
+				logger.BroadcastLogNow(logger.GenerateWarnLog(nodeID, "cache_server", fmt.Sprintf("Timeout while waiting for response from origin server (attempt %d)", attempt+1)))
 				continue
 			}
-			logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Error reading from origin server", "READ_ERROR", fmt.Sprintf("%v", err)))
+			logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Error reading from origin server", "READ_ERROR", fmt.Sprintf("%v", err)))
 			return "", err
 		}
 
@@ -222,14 +222,14 @@ func getFromOrigin(key int) (string, error) {
 		return string(buffer[:n]), nil
 	}
 
-	logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", fmt.Sprintf("Failed to retrieve key %d from origin servers after retries", key), "RETRY_ERROR", "Exceeded max retries"))
+	logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", fmt.Sprintf("Failed to retrieve key %d from origin servers after retries", key), "RETRY_ERROR", "Exceeded max retries"))
 	return "", err
 }
 
 func populateServers() bool {
 	file, err := os.Open("../servers.txt")
 	if err != nil {
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to open servers.txt", "FILE_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Failed to open servers.txt", "FILE_ERROR", fmt.Sprintf("%v", err)))
 		return false
 	}
 	defer file.Close()
@@ -253,12 +253,12 @@ func populateServers() bool {
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "Error reading servers.txt", "FILE_READ_ERROR", fmt.Sprintf("%v", err)))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "Error reading servers.txt", "FILE_READ_ERROR", fmt.Sprintf("%v", err)))
 		return false
 	}
 
 	if len(originServers) == 0 {
-		logger.BroadcastLog(logger.GenerateErrorLog(nodeID, "cache_server", "No origin servers found in servers.txt", "CONFIG_ERROR", "Check servers.txt configuration"))
+		logger.BroadcastLogNow(logger.GenerateErrorLog(nodeID, "cache_server", "No origin servers found in servers.txt", "CONFIG_ERROR", "Check servers.txt configuration"))
 		return false
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/fluent/fluent-logger-golang/fluent"
 	"github.com/google/uuid"
@@ -255,7 +256,7 @@ func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
 
 func StartHeartbeatRoutine(nodeID int) {
 	for {
-		BroadcastLog(GenerateHeartbeatMsg(nodeID, true))
+		BroadcastLogNow(GenerateHeartbeatMsg(nodeID, true))
 		time.Sleep(15 * time.Second)
 	}
 }
