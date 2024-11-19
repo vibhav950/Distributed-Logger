@@ -1,10 +1,9 @@
-package main
+package logger
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
-
 	"github.com/IBM/sarama"
 	"github.com/fluent/fluent-logger-golang/fluent"
 	"github.com/google/uuid"
@@ -69,7 +68,7 @@ type RegistryMsg struct {
 }
 
 var globalBrokers = []string{"127.0.0.1:9092"}
-var globalTopic = "logs"
+var globalTopic = ""
 var globalProducer sarama.SyncProducer = nil
 var globalFluentdLogger *fluent.Fluent = nil
 
@@ -91,7 +90,7 @@ func initFluentdLogger(fluentdAddress string) error {
 	return nil
 }
 
-func InitLogger(brokers []string, topic string, fluentdAddress string) error {
+func InitLogger(kafkaBrokers []string, kafkaCriticalTopic string, fluentdAddress string) error {
 	var err error
 	var producer sarama.SyncProducer
 
@@ -99,7 +98,7 @@ func InitLogger(brokers []string, topic string, fluentdAddress string) error {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
-	producer, err = sarama.NewSyncProducer(brokers, config)
+	producer, err = sarama.NewSyncProducer(kafkaBrokers, config)
 	if err != nil {
 		return fmt.Errorf("Failed to create Sarama producer: %v\n", err)
 	}
@@ -109,8 +108,8 @@ func InitLogger(brokers []string, topic string, fluentdAddress string) error {
 		return err
 	}
 
-	globalBrokers = brokers
-	globalTopic = topic
+	globalBrokers = kafkaBrokers
+	globalTopic = kafkaCriticalTopic
 	globalProducer = producer
 	return nil
 }
@@ -122,6 +121,8 @@ func CloseLogger() {
 	if globalFluentdLogger != nil {
 		globalFluentdLogger.Close()
 	}
+	globalProducer = nil
+	globalFluentdLogger = nil
 }
 
 func BroadcastLogNow(log []byte) error {
@@ -145,7 +146,7 @@ func BroadcastLogNow(log []byte) error {
 		return fmt.Errorf("Failed to send message: %v\n", err)
 	}
 
-	fmt.Println("Message sent to partition", partition, "with offset", offset, "on topic", globalTopic)
+	fmt.Println("[DEBUG] Message sent to partition", partition, "with offset", offset, "on topic", globalTopic)
 	return nil
 }
 
@@ -173,6 +174,7 @@ func BroadcastLog(logData []byte) error {
 		return fmt.Errorf("Failed to send log to Fluentd: %v\n", err)
 	}
 
+	fmt.Println("[DEBUG] Log sent to Fluentd with tag", tag)
 	return nil
 }
 
@@ -258,6 +260,7 @@ func StartHeartbeatRoutine(nodeID int) {
 	for {
 		BroadcastLogNow(GenerateHeartbeatMsg(nodeID, true))
 		time.Sleep(15 * time.Second)
+		fmt.Println("[DEBUG] Heartbeat sent")
 	}
 }
 
@@ -285,14 +288,11 @@ func DecodeLog(data []byte, v interface{}) error {
 }
 
 func Test() {
-	var err error
-
 	/* Initialize the logger */
-	err = InitLogger(globalBrokers, "critical_logs", "localhost")
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return
-	}
+	brokers := []string{"localhost:9092"}
+	topic := "critical_logs"
+	fluentdAddress := "localhost"
+	CHECK(InitLogger(brokers, topic, fluentdAddress))
 	defer CloseLogger()
 
 	CHECK(BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")))
@@ -303,6 +303,6 @@ func Test() {
 	fmt.Println("Logs sent successfully")
 }
 
-func main() {
-	Test()
-}
+// func main() {
+// 	Test()
+// }

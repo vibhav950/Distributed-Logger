@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"example.com/logger"
 	"github.com/google/uuid"
 )
@@ -20,14 +19,16 @@ const (
 	max_key_index           = 100_000         // maximum index for the cache servers
 )
 
-var nodeID int
+var gloablNodeID int
 var cacheServers = []string{}
 
-func populateServers() bool {
-	file, err := os.Open("../servers.txt") // Replace with your file name
+func populateServers() (error, string) {
+	var err error
+	var file *os.File
+
+	file, err = os.Open("../servers.txt") // Replace with your file name
 	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return false
+		return err, "Error opening file"
 	}
 	defer file.Close()
 
@@ -51,17 +52,15 @@ func populateServers() bool {
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file:", err)
-		return false
+	if err = scanner.Err(); err != nil {
+		return err, "Error reading file"
 	}
 
 	if len(cacheServers) == 0 {
-		fmt.Println("No origin servers found in the configuration.")
-		return false
+		return fmt.Errorf("No cache servers found"), "No cache servers found"
 	}
 
-	return true
+	return nil, ""
 }
 
 func udpSendAndReceive(addr string, payload int64) (string, error) {
@@ -70,7 +69,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr)))
+		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr))))
 	}
 
 	/* Dial the server */
@@ -79,7 +78,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr)))
+		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr))))
 	}
 
 	/* Send a packet to the server */
@@ -87,7 +86,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr)))
+		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr))))
 	}
 
 	/* Listen for a response */
@@ -97,49 +96,47 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.BroadcastLog((logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Received %s from %s", string(buffer[:n]), addr))))
+		logger.CHECK(logger.BroadcastLog((logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Received %s from %s", string(buffer[:n]), addr)))))
 	}
 
 	return string(buffer[:n]), nil
 }
 
 func main() {
-	var err error
-
-	if !populateServers() {
-		return // Exit if there are no cache servers
-	}
-
 	/* Initialize the logger */
-	brokers := []string{"172.24.230.157:9092"}
-	topic := "logs"
-	err = logger.InitLogger(brokers, topic, false)
+	brokers := []string{"localhost:9092"}
+	topic := "critical_logs"
+	fluentdAddress := "localhost"
+	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))
+	defer logger.CloseLogger()
+
+	/* Populate the cache servers */
+	err, msg := populateServers()
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		logger.CHECK(logger.BroadcastLogNow(logger.GenerateErrorLog(gloablNodeID, "router", msg, "500", fmt.Sprintf("%v", err))))
 		return
 	}
 
-	nodeID = int(uuid.New().ID())
-	/* TODO Register with the logging system */
+	/* Assign this service a unique ID */
+	gloablNodeID = int(uuid.New().ID())
 
 	/* Start the heartbeat routine */
-	go logger.StartHeartbeatRoutine(nodeID)
+	go logger.StartHeartbeatRoutine(gloablNodeID)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-
 	ipIndex := 0
 	for range ticker.C {
-
 		payload := (rand.Int63()) % max_key_index
 		response, err := udpSendAndReceive(cacheServers[ipIndex], payload)
 
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Println("Sending error log")
+			logger.CHECK(logger.BroadcastLogNow(logger.GenerateErrorLog(gloablNodeID, "router", "Error sending UDP packet", "500", fmt.Sprintf("%v", err))))
 			continue
 		}
 
-		logger.BroadcastLog(logger.GenerateInfoLog(nodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response)))
+		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response))))
 
 		/* Go through the cacheServers in a Round-Robin fashion */
 		ipIndex = (ipIndex + 1) % len(cacheServers)
