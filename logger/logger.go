@@ -126,7 +126,7 @@ func CloseLogger() {
 	globalFluentdLogger = nil
 }
 
-func BroadcastLogNow(log []byte) error {
+func broadcastLogNow(log []byte) error {
 	if globalBrokers == nil || globalTopic == "" {
 		return fmt.Errorf("Logger not initialized. Please call InitLogger first")
 	}
@@ -151,7 +151,7 @@ func BroadcastLogNow(log []byte) error {
 	return nil
 }
 
-func BroadcastLog(logData []byte) error {
+func broadcastLog(logData []byte) error {
 	if globalFluentdLogger == nil {
 		return fmt.Errorf("Fluentd logger not initialized. Please call InitLogger first")
 	}
@@ -179,7 +179,7 @@ func BroadcastLog(logData []byte) error {
 	return nil
 }
 
-func GenerateRegistrationMsg(nodeID int, serviceName string) []byte {
+func SendRegistrationMsg(nodeID int, serviceName string) {
 	log := RegistrationMsg{
 		NodeID:      nodeID,
 		MessageType: "REGISTRATION",
@@ -187,10 +187,10 @@ func GenerateRegistrationMsg(nodeID int, serviceName string) []byte {
 		Timestamp:   time.Now().String(),
 	}
 	jsonData, _ := json.Marshal(log)
-	return jsonData
+	CHECK(broadcastLogNow(jsonData))
 }
 
-func GenerateInfoLog(nodeID int, serviceName string, message string) []byte {
+func SendInfoLog(nodeID int, serviceName string, message string) {
 	log := InfoLog{
 		LogID:       int(uuid.New().ID()),
 		NodeID:      nodeID,
@@ -201,10 +201,10 @@ func GenerateInfoLog(nodeID int, serviceName string, message string) []byte {
 		Timestamp:   time.Now().String(),
 	}
 	jsonData, _ := json.Marshal(log)
-	return jsonData
+	CHECK(broadcastLog(jsonData))
 }
 
-func GenerateWarnLog(nodeID int, serviceName string, message string) []byte {
+func SendWarnLog(nodeID int, serviceName string, message string) {
 	log := WarnLog{
 		LogID:            int(uuid.New().ID()),
 		NodeID:           nodeID,
@@ -217,10 +217,10 @@ func GenerateWarnLog(nodeID int, serviceName string, message string) []byte {
 		Timestamp:        time.Now().String(),
 	}
 	jsonData, _ := json.Marshal(log)
-	return jsonData
+	CHECK(broadcastLogNow(jsonData))
 }
 
-func GenerateErrorLog(nodeID int, serviceName string, message string, errorCode string, errorMessage string) []byte {
+func SendErrorLog(nodeID int, serviceName string, message string, errorCode string, errorMessage string) {
 	log := ErrorLog{
 		LogID:       int(uuid.New().ID()),
 		NodeID:      nodeID,
@@ -238,7 +238,7 @@ func GenerateErrorLog(nodeID int, serviceName string, message string, errorCode 
 		Timestamp: time.Now().String(),
 	}
 	jsonData, _ := json.Marshal(log)
-	return jsonData
+	CHECK(broadcastLogNow(jsonData))
 }
 
 func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
@@ -259,7 +259,7 @@ func GenerateHeartbeatMsg(nodeID int, healthy bool) []byte {
 
 func StartHeartbeatRoutine(nodeID int) {
 	for {
-		BroadcastLogNow(GenerateHeartbeatMsg(nodeID, true))
+		broadcastLogNow(GenerateHeartbeatMsg(nodeID, true))
 		time.Sleep(15 * time.Second)
 		fmt.Println("[DEBUG] Heartbeat sent")
 	}
@@ -295,12 +295,12 @@ func Test() {
 		fmt.Printf("%v\n", err)
 		return
 	}
-	BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
-	BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message"))
+	SendErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error")
+	SendWarnLog(1, "foo_service", "This is a warning message")
 
 	// Produce logs
-	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
-	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
+	SendInfoLog(1, "foo_service", "This is an info message")
+	SendInfoLog(1, "foo_service", "This is an info message")
 
 	fmt.Println("Logs sent successfully")
 }

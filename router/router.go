@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	server_response_timeout = 10e10           // timeout for the server to respond to a STATUS packet
+	server_response_timeout = 2 * time.Second // timeout for the server to respond to a STATUS packet
 	interval                = 1 * time.Second // interval between sending packets
 	max_key_index           = 100_000         // maximum index for the cache servers
 )
@@ -70,7 +70,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr))))
+		logger.SendInfoLog(gloablNodeID, "router", fmt.Sprintf("Resolved %s to %s", addr, serverAddr))
 	}
 
 	/* Dial the server */
@@ -79,7 +79,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr))))
+		logger.SendInfoLog(gloablNodeID, "router", fmt.Sprintf("Established UDP connection with %s", addr))
 	}
 
 	/* Send a packet to the server */
@@ -87,7 +87,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr))))
+		logger.SendInfoLog(gloablNodeID, "router", fmt.Sprintf("Sent %d to %s", payload, addr))
 	}
 
 	/* Listen for a response */
@@ -108,20 +108,20 @@ func main() {
 	brokers := []string{"localhost:9092"}
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
-	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))
+	logger.InitLogger(brokers, topic, fluentdAddress)
 	defer logger.CloseLogger()
 
 	/* Populate the cache servers */
 	err, msg := populateServers()
 	if err != nil {
-		logger.CHECK(logger.BroadcastLogNow(logger.GenerateErrorLog(gloablNodeID, "router", msg, "500", fmt.Sprintf("%v", err))))
+		logger.SendErrorLog(gloablNodeID, "router", msg, "500", fmt.Sprintf("%v", err))
 		return
 	}
 
 	/* Assign this service a unique ID */
 	gloablNodeID = int(uuid.New().ID())
 
-	logger.CHECK(logger.BroadcastLogNow(logger.GenerateRegistrationMsg(gloablNodeID, "router")))
+	logger.SendRegistrationMsg(gloablNodeID, "router")
 
 	/* Start the heartbeat routine */
 	go logger.StartHeartbeatRoutine(gloablNodeID)
@@ -135,11 +135,11 @@ func main() {
 
 		if err != nil {
 			fmt.Println("Sending error log")
-			logger.CHECK(logger.BroadcastLogNow(logger.GenerateErrorLog(gloablNodeID, "router", "Error sending UDP packet", "500", fmt.Sprintf("%v", err))))
+			logger.SendErrorLog(gloablNodeID, "router", "Error sending UDP packet", "500", fmt.Sprintf("%v", err))
 			continue
 		}
 
-		logger.CHECK(logger.BroadcastLog(logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response))))
+		logger.SendInfoLog(gloablNodeID, "router", fmt.Sprintf("Response from %s: %s", cacheServers[ipIndex], response))
 
 		/* Go through the cacheServers in a Round-Robin fashion */
 		ipIndex = (ipIndex + 1) % len(cacheServers)
