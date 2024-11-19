@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,8 +21,8 @@ type ElasticClient struct {
 func NewElasticClient(index string) (*ElasticClient, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{"http://localhost:9200"},
-		Username:  "elastic",              // Add your username here
-		Password:  "XXiqV27E1FcB*Qeh0jox", // Add your password here
+		Username:  "elastic",
+		Password:  "XXiqV27E1FcB*Qeh0jox",
 	}
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
@@ -52,52 +51,26 @@ func (ec *ElasticClient) SearchLogs(query string) (map[string]interface{}, error
 	return searchResult, nil
 }
 
-// DeleteAllDocuments deletes all documents from the index
-func (ec *ElasticClient) DeleteAllDocuments() error {
-	// Create a delete-by-query request
-	query := `{
-		"query": {
-			"match_all": {}
-		}
-	}`
-
-	res, err := ec.Client.DeleteByQuery([]string{ec.Index}, bytes.NewReader([]byte(query)))
-	if err != nil {
-		return fmt.Errorf("error deleting documents: %v", err)
-	}
-	defer res.Body.Close()
-
-	fmt.Println("All documents deleted successfully.")
-	return nil
-}
-
 // ShowLogs fetches logs based on the specified level and prints them
-func (ec *ElasticClient) ShowLogs(level string) {
+func (ec *ElasticClient) ShowLogs(level string, limit int) {
 	var query string
-	if level == "info" {
-		// Query for info level logs
-		query = `{
+
+	if level == "all" {
+		query = fmt.Sprintf(`{
+			"query": {
+				"match_all": {}
+			},
+			"size": %d
+		}`, limit)
+	} else {
+		query = fmt.Sprintf(`{
 			"query": {
 				"match": {
-					"log_level": "INFO"
+					"log_level": "%s"
 				}
-			}
-		}`
-	} else if level == "alerts" {
-		// Query for warn and error level logs (alerts)
-		query = `{
-					"query": {
-						"bool": {
-						"should": [
-							{ "match": { "log_level": "ERROR" } },
-							{ "match": { "log_level": "WARN" } }
-						]
-						}
-					}
-				}`
-	} else {
-		fmt.Println("Invalid log level specified. Use 'info' or 'alerts'.")
-		return
+			},
+			"size": %d
+		}`, level, limit)
 	}
 
 	logs, err := ec.SearchLogs(query)
@@ -105,15 +78,12 @@ func (ec *ElasticClient) ShowLogs(level string) {
 		log.Fatalf("Failed to retrieve logs: %v", err)
 	}
 
-	// Print the search results in a pretty format
 	hits := logs["hits"].(map[string]interface{})["hits"].([]interface{})
 	for _, hit := range hits {
 		logData := hit.(map[string]interface{})["_source"].(map[string]interface{})
-		// Safely access the "level" and "message" fields
 		level, levelOk := logData["log_level"].(string)
 		message, messageOk := logData["message"].(string)
 
-		// Handle missing fields gracefully
 		if !levelOk {
 			level = "unknown"
 		}
@@ -121,7 +91,6 @@ func (ec *ElasticClient) ShowLogs(level string) {
 			message = "No message"
 		}
 
-		// Print the log with safe defaults
 		fmt.Printf("Level: %s - Message: %s\n", level, message)
 	}
 }
@@ -141,42 +110,45 @@ func main() {
 		Commands: []*cli.Command{
 			{
 				Name:  "logs",
-				Usage: "Show logs based on the specified log level (info or alerts)",
+				Usage: "Show logs based on the specified log level (info, alerts, or all)",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "level",
-						Usage:    "Specify the log level to filter by: 'info' or 'alerts'",
-						Required: true,
+						Usage:    "Specify the log level to filter by: 'info', 'alerts', or 'all'",
+						Required: false,
 					},
-					&cli.BoolFlag{
-						Name:     "delete",
-						Usage:    "Delete all documents from the Elasticsearch index",
+					&cli.IntFlag{
+						Name:     "limit",
+						Usage:    "Specify the number of logs to retrieve",
+						Value:    10, // Default limit
 						Required: false,
 					},
 				},
 				Action: func(c *cli.Context) error {
 					index := c.String("index")
 					level := c.String("level")
-					deleteFlag := c.Bool("delete")
+					limit := c.Int("limit")
 
-					// Initialize the Elasticsearch client
+					if limit <= 0 {
+						return fmt.Errorf("limit must be a positive number")
+					}
+
+					if level == "" {
+						fmt.Println("Please specify a valid log level using --level.")
+						return nil
+					}
+
 					ec, err := NewElasticClient(index)
 					if err != nil {
 						return fmt.Errorf("failed to initialize Elasticsearch client: %w", err)
 					}
 
-					// If the delete flag is set, delete all documents
-					if deleteFlag {
-						err := ec.DeleteAllDocuments()
-						if err != nil {
-							return fmt.Errorf("failed to delete documents: %w", err)
-						}
+					if level == "info" || level == "alerts" || level == "all" {
+						ec.ShowLogs(level, limit)
 						return nil
 					}
 
-					// Show logs based on the level
-					ec.ShowLogs(level)
-
+					fmt.Println("Invalid log level. Use 'info', 'alerts', or 'all'.")
 					return nil
 				},
 			},
