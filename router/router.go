@@ -96,7 +96,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		logger.CHECK(logger.BroadcastLog((logger.GenerateInfoLog(gloablNodeID, "router", fmt.Sprintf("Received %s from %s", string(buffer[:n]), addr)))))
+		fmt.Printf("Received response from %s: %s\n", addr, string(buffer[:n]))
 	}
 
 	return string(buffer[:n]), nil
@@ -104,7 +104,7 @@ func udpSendAndReceive(addr string, payload int64) (string, error) {
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"172.16.172.33:9092"}
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))

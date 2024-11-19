@@ -68,7 +68,7 @@ type RegistryMsg struct {
 	Timestamp   string `json:"timestamp"`
 }
 
-var globalBrokers = []string{"127.0.0.1:9092"}
+var globalBrokers = []string{"172.16.172.33:9092"}
 var globalTopic = ""
 var globalProducer sarama.SyncProducer = nil
 var globalFluentdLogger *fluent.Fluent = nil
@@ -290,7 +290,7 @@ func DecodeLog(data []byte, v interface{}) error {
 
 func Test() {
 	/* Initialize the logger */
-	err = InitLogger(globalBrokers, "critical_logs", "localhost")
+	err := InitLogger(globalBrokers, "critical_logs", "localhost")
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return

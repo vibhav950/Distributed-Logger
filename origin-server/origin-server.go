@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"time"
+
 	"example.com/logger"
 	"github.com/google/uuid"
 )
@@ -29,7 +30,7 @@ func generateRandomString() string {
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"172.16.172.33:9092"}
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))

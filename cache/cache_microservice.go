@@ -32,7 +32,7 @@ const nkeys = 100_000
 
 func main() {
 	/* Initialize the logger */
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"172.16.172.33:9092"}
 	topic := "critical_logs"
 	fluentdAddress := "localhost"
 	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))
@@ -41,7 +41,7 @@ func main() {
 
 	nodeID = int(uuid.New().ID())
 
-	logger.CHECK(logger.BroadcastLogNow(logger.GenerateRegistrationMsg(nodeID, "router")))
+	logger.CHECK(logger.BroadcastLogNow(logger.GenerateRegistrationMsg(nodeID, "cache")))
 
 	go logger.StartHeartbeatRoutine(nodeID)
 
