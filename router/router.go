@@ -120,6 +120,8 @@ func main() {
 	/* Assign this service a unique ID */
 	gloablNodeID = int(uuid.New().ID())
 
+	logger.CHECK(logger.BroadcastLogNow(logger.GenerateRegistrationMsg(gloablNodeID, "router")))
+
 	/* Start the heartbeat routine */
 	go logger.StartHeartbeatRoutine(gloablNodeID)
 

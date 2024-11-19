@@ -19,8 +19,6 @@ var cache sync.Map
 var cacheSize int
 var cacheMutex sync.Mutex
 
-var a logger.RegistrationLog
-var brokers = []string{"172.24.230.157:9092"}
 var nodeID int
 
 const topic = "cache_logs"
@@ -33,14 +31,18 @@ var mu sync.Mutex
 const nkeys = 100_000
 
 func main() {
+	/* Initialize the logger */
+	brokers := []string{"localhost:9092"}
+	topic := "critical_logs"
+	fluentdAddress := "localhost"
+	logger.CHECK(logger.InitLogger(brokers, topic, fluentdAddress))
+	defer logger.CloseLogger()
+	log.Println("Logger initialized")
+
 	nodeID = int(uuid.New().ID())
 
-	err := logger.InitLogger(brokers, topic, false)
-	if err != nil {
-		fmt.Printf("Failed to initialize logger: %v\n", err)
-		return
-	}
-	log.Println("Logger initialized")
+	logger.CHECK(logger.BroadcastLogNow(logger.GenerateRegistrationMsg(nodeID, "router")))
+
 	go logger.StartHeartbeatRoutine(nodeID)
 
 	log.Printf("Starting cache server with unique ID: %d\n", nodeID)
