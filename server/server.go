@@ -1,63 +1,3 @@
-// package main
-
-// import (
-//     "fmt"
-//     "net"
-// )
-
-// func main() {
-//     addr := net.UDPAddr{
-//         Port: 7777,
-//         IP:   net.ParseIP("127.0.0.1"),
-//     }
-//     conn, err := net.ListenUDP("udp", &addr)
-//     if err != nil {
-//         fmt.Println("Error starting UDP server:", err)
-//         return
-//     }
-//     defer conn.Close()
-
-//     buffer := make([]byte, 1024)
-//     for {
-//         n, remoteAddr, err := conn.ReadFromUDP(buffer)
-//         if err != nil {
-//             fmt.Println("Error reading from UDP:", err)
-//             continue
-//         }
-//         fmt.Printf("Received message from %s: %s\n", remoteAddr, string(buffer[:n]))
-//     }
-// }
-
-// func main() {
-//     addr := net.UDPAddr{
-//         Port: 8080,
-//         IP:   net.ParseIP("127.0.0.1"),
-//     }
-//     conn, err := net.ListenUDP("udp", &addr)
-//     if err != nil {
-//         fmt.Println("Error starting UDP server:", err)
-//         return
-//     }
-//     defer conn.Close()
-
-//     buffer := make([]byte, 1024)
-//     for {
-//         n, remoteAddr, err := conn.ReadFromUDP(buffer)
-//         if err != nil {
-//             fmt.Println("Error reading from UDP:", err)
-//             continue
-//         }
-//         fmt.Printf("Received message from %s: %s\n", remoteAddr, string(buffer[:n]))
-
-// 		if bytes.Equal(buffer[:n], []byte("STATUS")) {
-// 			_, err = conn.WriteToUDP([]byte("UP"), remoteAddr)
-// 			if err != nil {
-// 				fmt.Println("Error writing to UDP:", err)
-// 			}
-// 		}
-//     }
-// }
-
 package main
 
 import (
@@ -79,13 +19,18 @@ type ElasticClient struct {
 	Index  string
 }
 
+// NodeStatus tracks the last heartbeat timestamp and status of nodes
+type NodeStatus struct {
+	LastHeartbeat time.Time
+	Status        string
+}
+
 // NewElasticClient initializes an Elasticsearch client
 func NewElasticClient(index string) (*ElasticClient, error) {
 	cfg := elasticsearch.Config{
 		Addresses: []string{"http://localhost:9200"},
 		Username:  "elastic",              // Add your username here
 		Password:  "XXiqV27E1FcB*Qeh0jox", // Add your password here
-
 	}
 	client, err := elasticsearch.NewClient(cfg)
 	if err != nil {
@@ -127,7 +72,7 @@ func (ec *ElasticClient) IndexLog(logData map[string]interface{}) error {
 	return nil
 }
 
-func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.WaitGroup) {
+func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.WaitGroup, nodeMap *sync.Map) {
 	defer wg.Done()
 
 	consumer, err := sarama.NewConsumer(brokers, nil)
@@ -152,9 +97,30 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 			continue
 		}
 
-		if len(logData) == 4 {
-			// registration message
+		// if len(logData) == 4 {
+		// 	// registration message
+		// 	logData["status"] = "UP"
+		// }
+
+		nodeID := int(logData["node_id"].(float64))
+		messageType := logData["message_type"].(string)
+
+		if messageType == "registration" {
+			// Registration message: initialize the node's status
 			logData["status"] = "UP"
+			nodeMap.Store(nodeID, &NodeStatus{
+				LastHeartbeat: time.Now(),
+				Status:        "UP",
+			})
+			fmt.Printf("Node %d registered and marked UP\n", nodeID)
+		} else if messageType == "heartbeat" {
+			// Heartbeat message: update the node's last heartbeat
+			if val, ok := nodeMap.Load(nodeID); ok {
+				nodeStatus := val.(*NodeStatus)
+				nodeStatus.LastHeartbeat = time.Now()
+				nodeMap.Store(nodeID, nodeStatus)
+				fmt.Printf("Heartbeat received from Node %d\n", nodeID)
+			}
 		}
 
 		// Store the log in Elasticsearch
@@ -182,7 +148,29 @@ func consumeTopic(brokers []string, topic string, ec *ElasticClient, wg *sync.Wa
 
 		// searchRes.Body.Close()
 	}
+}
 
+func monitorNodes(nodeMap *sync.Map) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		currentTime := time.Now()
+
+		nodeMap.Range(func(key, value interface{}) bool {
+			nodeID := key.(int)
+			nodeStatus := value.(*NodeStatus)
+
+			if currentTime.Sub(nodeStatus.LastHeartbeat) > 30*time.Second && nodeStatus.Status == "UP" {
+				nodeStatus.Status = "DOWN"
+				nodeMap.Store(nodeID, nodeStatus)
+				fmt.Printf("Node %d has died (no heartbeat in 30s)\n", nodeID)
+			}
+
+			return true
+		})
+	}
 }
 
 func main() {
@@ -196,11 +184,16 @@ func main() {
 		log.Fatalf("Failed to initialize Elasticsearch client: %v", err)
 	}
 
+	nodeMap := &sync.Map{}
+
+	// Start the monitor goroutine
+	go monitorNodes(nodeMap)
+
 	// Spawn a consumer for each topic
 	var wg sync.WaitGroup
 	for _, topic := range topics {
 		wg.Add(1)
-		go consumeTopic(brokers, topic, ec, &wg)
+		go consumeTopic(brokers, topic, ec, &wg, nodeMap)
 	}
 
 	wg.Wait()
