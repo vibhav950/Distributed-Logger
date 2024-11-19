@@ -69,7 +69,7 @@ type RegistryMsg struct {
 }
 
 var globalBrokers = []string{"127.0.0.1:9092"}
-var globalTopic = ""
+var globalTopic = "logs"
 var fluentdLogger *fluent.Fluent = nil
 
 func initFluentdLogger(fluentdAddress string) error {
@@ -135,7 +135,7 @@ func BroadcastLogNow(log []byte) {
 		fmt.Printf("Failed to send message: %v\n", err)
 		return
 	}
-	fmt.Printf("Message sent to partition %d with offset %d\n", partition, offset)
+	fmt.Println("Message sent to partition", partition, "with offset", offset, "on topic", globalTopic)
 }
 
 func BroadcastLog(logData []byte) {
@@ -317,12 +317,12 @@ func Test() {
 		fmt.Printf("%v\n", err)
 		return
 	}
-	BroadcastLogNow(GenerateInfoLog(1, "foo_service", "This is an info message"))
+	BroadcastLogNow(GenerateErrorLog(1, "foo_service", "This is an error message", "500", "Internal Server Error"))
 	BroadcastLogNow(GenerateWarnLog(1, "foo_service", "This is a warning message"))
 
 	// Produce logs
 	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is an info message"))
-	BroadcastLog(GenerateWarnLog(1, "foo_service", "This is a warning message"))
+	BroadcastLog(GenerateInfoLog(1, "foo_service", "This is a warning message"))
 
 	fmt.Println("Logs sent successfully")
 }
