@@ -1,16 +1,14 @@
-# RR-Team-82-distributed-logging-system
-
 # Distributed Logging Application
-
-## Contributors
-
-- Samarth Bhat Y (PES1UG22CS507)
-- Samar Garg (PES1UG22CS506)
-- Vibhav Tiwari (PES1UG22CS686)
 
 ## Overview
 
 This project is a distributed logging application designed for robust and efficient log handling in a microservice-based architecture. The system is built with components for log generation, broadcasting, accumulation, and querying. It features real-time log processing with critical logs, scalable log storage, and a CLI for querying logs.
+
+## Contributors
+
+- [Samarth Bhat Y](https://github.com/samarth-clone)
+- [Samar Garg ](https://github.com/Samsonnyyeet)
+- [Vibhav Tiwari](https://github.com/vibhav950)
 
 ---
 
