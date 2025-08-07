@@ -6,13 +6,15 @@ This project is a distributed logging application designed for robust and effici
 
 ## Contributors
 
-- [Samarth Bhat Y](https://github.com/samarth-clone)
-- [Samar Garg ](https://github.com/Samsonnyyeet)
-- [Vibhav Tiwari](https://github.com/vibhav950)
+- [samarth-clone](https://github.com/samarth-clone)
+- [Samsonnyyeet](https://github.com/Samsonnyyeet)
+- [vibhav950](https://github.com/vibhav950)
 
 ---
 
 ## Architecture
+
+<img src="https://github.com/user-attachments/assets/45fc291b-47e2-4dc2-aa1e-27929d4ba08d" alt="Architecture diagram" width="800">
 
 ### Components
 1. **Microservices**:
