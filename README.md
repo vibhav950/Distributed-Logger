@@ -55,9 +55,6 @@ This project is a distributed logging application designed for robust and effici
 - **Querying**:
   - The CLI provides flexibility to search logs by category and limit.
 
-- **Timeout Handling**:
-  - Ensures reliable log storage even under high load.
-
 ---
 
 ## Setup and Usage
